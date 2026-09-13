@@ -21,6 +21,7 @@ envelope. Prefer the specialised tools where they exist:
 | Ship / fetch a project folder | `project_upload` / `project_export` |
 | Raw MQTT | `mqtt_publish` / `mqtt_subscribe` / `mqtt_read_retained` |
 | Which broker am I on? | `broker_connection` |
+| Several brokers (dev/edge/prod) | `broker_list` → `broker_use { name }`; add one with `broker_save` |
 
 Without a configured broker, give the user the exact payload to publish:
 `mosquitto_pub -h HOST -u USER -P PASS -t '$SYS/Coreflux/Command' -m '-listRoutes'` and

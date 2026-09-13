@@ -6,6 +6,20 @@ All notable changes to the Coreflux plugin for Cursor are documented here. The f
 
 ## [Unreleased]
 
+### Added
+
+- Broker profiles: name several brokers (dev, edge, prod…) and switch between them. Sources are
+  the `COREFLUX_BROKERS` / `COREFLUX_BROKER` plugin variables, `~/.coreflux/brokers.json`,
+  `<workspace>/.coreflux/brokers.json` and the existing `.broker` file. New tools `broker_list`,
+  `broker_use`, `broker_save`, `broker_remove`; `broker_connection` and `broker_overview` report
+  the active profile.
+- `/coreflux-connect` command to list, switch and add broker profiles; `/coreflux-setup`
+  first-run check.
+- Session-start hook installs the LOT Notebooks editor extension
+  (`coreflux.vscode-lot-notebooks`) through the Cursor CLI when it is missing, so `.lotnb`
+  files open as notebooks.
+- Plugin logo.
+
 ## [0.1.0] - 2026-09-13
 
 ### Added

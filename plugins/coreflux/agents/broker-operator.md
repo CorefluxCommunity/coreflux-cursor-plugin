@@ -10,9 +10,11 @@ state: every statement about the broker is backed by an envelope or a topic you 
 
 ## Start of every task
 
-1. `broker_connection` — confirm URL, user, and that `Command/Output` is subscribable.
+1. `broker_connection` — confirm profile, URL, user, and that `Command/Output` is
+   subscribable. If `otherProfiles` is non-empty and the request names an environment
+   (edge, staging, prod…), `broker_use` that profile first and say so.
 2. `broker_overview` — routes (connection/health), projects, active project, pending
-   entities, retained action errors. Summarise in five lines.
+   entities, retained action errors. Summarise in five lines, starting with the profile.
 
 ## Diagnosing
 

@@ -11,6 +11,10 @@ import { McpTestClient } from "./helpers/mcp-client.mjs";
 
 const EXPECTED_TOOLS = [
   "broker_connection",
+  "broker_list",
+  "broker_use",
+  "broker_save",
+  "broker_remove",
   "broker_command",
   "broker_overview",
   "mqtt_publish",
@@ -29,13 +33,18 @@ const EXPECTED_TOOLS = [
 let broker;
 let mcp;
 let workdir;
+let home;
+/** Environment that isolates the server from the developer's own ~/.coreflux and plugin variables. */
+let baseEnv;
 
 before(async () => {
   broker = await new FakeBroker({ users: { root: "coreflux", viewer: "viewer" } }).listen();
   workdir = mkdtempSync(path.join(tmpdir(), "cf-mcp-"));
+  home = mkdtempSync(path.join(tmpdir(), "cf-mcp-home-"));
+  baseEnv = { COREFLUX_HOME: home, COREFLUX_BROKERS: "", COREFLUX_BROKER: "", COREFLUX_MQTT_URL: "", COREFLUX_MQTT_USERNAME: "", COREFLUX_MQTT_PASSWORD: "", COREFLUX_MQTT_CLIENT_ID: "", COREFLUX_MQTT_TLS_INSECURE: "" };
   mcp = new McpTestClient({
     cwd: workdir,
-    env: { COREFLUX_MQTT_URL: broker.url, COREFLUX_MQTT_USERNAME: "root", COREFLUX_MQTT_PASSWORD: "coreflux", COREFLUX_MQTT_CLIENT_ID: "mcp-test" },
+    env: { ...baseEnv, COREFLUX_MQTT_URL: broker.url, COREFLUX_MQTT_USERNAME: "root", COREFLUX_MQTT_PASSWORD: "coreflux", COREFLUX_MQTT_CLIENT_ID: "mcp-test" },
   });
   await mcp.initialize();
 });
@@ -44,6 +53,7 @@ after(async () => {
   await mcp.close();
   await broker.close();
   rmSync(workdir, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
 });
 
 test("initialize and tools/list expose every documented tool with a schema", async () => {
@@ -68,10 +78,59 @@ test("broker_connection reports the resolved settings and connects", async () =>
   assert.equal(data.url, broker.url);
   assert.equal(data.username, "root");
   assert.equal(data.password, "•••••", "password must be masked");
-  assert.equal(data.settingsSource, "environment");
+  assert.equal(data.profile, "default");
+  assert.match(data.settingsSource, /profile "default" via plugin connection variables/);
+  assert.deepEqual(data.otherProfiles, ["localhost"]);
   assert.equal(data.connected, true);
   assert.equal(data.commandOutputSubscribed, true);
   assert.equal(data.clientId, "mcp-test");
+});
+
+test("broker profiles: list, save, switch (session and persisted), remove", async () => {
+  const second = await new FakeBroker({ users: { ops: "ops-pw" } }).listen();
+  try {
+    const initial = await mcp.tool("broker_list");
+    assert.equal(initial.data.active, "default");
+    assert.deepEqual(initial.data.profiles.map((profile) => profile.name), ["default", "localhost"]);
+    assert.equal(JSON.stringify(initial.data.profiles).includes("coreflux"), false, "passwords never appear in listings");
+    assert.equal(initial.data.profiles.find((profile) => profile.name === "default").auth, "password");
+
+    const unknown = await mcp.tool("broker_use", { name: "edge" });
+    assert.ok(unknown.isError);
+    assert.match(unknown.text, /Unknown profile "edge"/);
+
+    const saved = await mcp.tool("broker_save", { name: "edge", url: second.url, username: "ops", password: "ops-pw", scope: "workspace", description: "Second fake broker" });
+    assert.equal(saved.data.file, path.join(workdir, ".coreflux", "brokers.json"));
+    assert.equal(saved.data.profile.password, "•••••");
+    assert.equal(JSON.parse(readFileSync(saved.data.file, "utf8")).brokers.edge.username, "ops");
+
+    const switched = await mcp.tool("broker_use", { name: "edge" });
+    assert.equal(switched.data.connected, true, switched.data.error);
+    assert.equal(switched.data.username, "ops");
+    assert.equal(switched.data.persisted, "session");
+    await mcp.tool("mqtt_publish", { topic: "from/edge", payload: "1", retain: true });
+    assert.ok(second.retained.has("from/edge"), "publishes go to the newly selected broker");
+    assert.ok(!broker.retained.has("from/edge"), "…and not to the previous one");
+    const connection = await mcp.tool("broker_connection");
+    assert.equal(connection.data.profile, "edge");
+    assert.equal(connection.data.url, second.url);
+    assert.match(connection.data.settingsSource, /broker_use \(this session\)/);
+
+    const persisted = await mcp.tool("broker_use", { name: "default", persist: "workspace", connect: false });
+    assert.equal(persisted.data.file, saved.data.file);
+    assert.equal(JSON.parse(readFileSync(saved.data.file, "utf8")).active, "default");
+    const back = await mcp.tool("broker_connection");
+    assert.equal(back.data.profile, "default");
+    assert.equal(back.data.url, broker.url);
+    assert.equal(back.data.connected, true);
+
+    const removed = await mcp.tool("broker_remove", { name: "edge", scope: "workspace" });
+    assert.deepEqual(removed.data.remaining, []);
+    const afterRemove = await mcp.tool("broker_list");
+    assert.deepEqual(afterRemove.data.profiles.map((profile) => profile.name), ["default", "localhost"]);
+  } finally {
+    await second.close();
+  }
 });
 
 test("broker_command correlates the Output envelope by requestId", async () => {
@@ -245,7 +304,7 @@ test("project_export writes the archive delivered on the download topic", async 
 });
 
 test("a viewer without $SYS rights gets an actionable error", async () => {
-  const viewer = new McpTestClient({ cwd: workdir, env: { COREFLUX_MQTT_URL: broker.url, COREFLUX_MQTT_USERNAME: "viewer", COREFLUX_MQTT_PASSWORD: "viewer" } });
+  const viewer = new McpTestClient({ cwd: workdir, env: { ...baseEnv, COREFLUX_MQTT_URL: broker.url, COREFLUX_MQTT_USERNAME: "viewer", COREFLUX_MQTT_PASSWORD: "viewer" } });
   try {
     await viewer.initialize();
     const connection = await viewer.tool("broker_connection");
@@ -262,13 +321,13 @@ test("a viewer without $SYS rights gets an actionable error", async () => {
 test(".broker file in cwd is used when no environment is set", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "cf-brokerfile-"));
   writeFileSync(path.join(dir, ".broker"), `${broker.url}\nusername=root\npassword=coreflux\n`);
-  const env = { COREFLUX_MQTT_URL: "", COREFLUX_MQTT_USERNAME: "", COREFLUX_MQTT_PASSWORD: "", COREFLUX_MQTT_CLIENT_ID: "" };
-  const client = new McpTestClient({ cwd: dir, env });
+  const client = new McpTestClient({ cwd: dir, env: baseEnv });
   try {
     await client.initialize();
     const { data } = await client.tool("broker_connection");
     assert.equal(data.url, broker.url);
-    assert.match(data.settingsSource, /^file /);
+    assert.equal(data.profile, "workspace");
+    assert.match(data.settingsSource, /\.broker file/);
     assert.equal(data.connected, true);
   } finally {
     await client.close();

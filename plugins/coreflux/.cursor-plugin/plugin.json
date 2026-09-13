@@ -27,10 +27,20 @@
   "variables": {
     "type": "object",
     "properties": {
+      "COREFLUX_BROKERS": {
+        "type": "string",
+        "title": "Broker profiles",
+        "description": "Optional list of named brokers the agent can switch between with broker_use, e.g. \"local=mqtt://root:pass@localhost:1883; edge=mqtts://ops:pass@10.0.0.5:8883?tlsInsecure=true; prod=mqtts://mqtt.example.com:8883?passwordEnv=PROD_MQTT_PASSWORD\". Users can add more in ~/.coreflux/brokers.json or <workspace>/.coreflux/brokers.json."
+      },
+      "COREFLUX_BROKER": {
+        "type": "string",
+        "title": "Active broker profile",
+        "description": "Name of the profile to use by default (from Broker profiles or a brokers.json file). Leave empty to use the connection fields below, the workspace's saved choice, or mqtt://localhost:1883."
+      },
       "COREFLUX_MQTT_URL": {
         "type": "string",
         "title": "Broker URL",
-        "description": "MQTT URL of the Coreflux broker, e.g. mqtt://localhost:1883 or mqtts://broker.example.com:8883. Falls back to a .broker file in the workspace, then mqtt://localhost:1883.",
+        "description": "Single-broker setup: MQTT URL of the Coreflux broker, e.g. mqtt://localhost:1883 or mqtts://broker.example.com:8883. Becomes the profile named \"default\".",
         "default": "mqtt://localhost:1883"
       },
       "COREFLUX_MQTT_USERNAME": {

@@ -4,6 +4,9 @@
     "sessionStart": [
       {
         "command": "node ./scripts/hooks/session-context.mjs"
+      },
+      {
+        "command": "node ./scripts/hooks/ensure-lot-extension.mjs"
       }
     ],
     "beforeMCPExecution": [

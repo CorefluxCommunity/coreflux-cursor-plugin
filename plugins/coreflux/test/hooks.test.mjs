@@ -78,26 +78,84 @@ test("shell guard only inspects commands aimed at the broker", async () => {
   assert.equal(kebab.permission, "ask");
 });
 
-test("session hook reports .broker URL and notebook counts", async () => {
+const isolatedEnv = (home) => ({ COREFLUX_HOME: home, COREFLUX_BROKERS: "", COREFLUX_BROKER: "", COREFLUX_MQTT_URL: "", COREFLUX_MQTT_USERNAME: "", COREFLUX_MQTT_PASSWORD: "" });
+
+test("session hook reports the active broker profile, the alternatives and notebook counts", async () => {
   const { mkdtempSync, writeFileSync, mkdirSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const dir = mkdtempSync(path.join(tmpdir(), "cf-hook-"));
+  const home = mkdtempSync(path.join(tmpdir(), "cf-hook-home-"));
   try {
     writeFileSync(path.join(dir, ".broker"), "# broker\nmqtt://10.0.0.5:1883\nusername=root\n");
     mkdirSync(path.join(dir, "project"));
     writeFileSync(path.join(dir, "project", "01-models.lotnb"), "[]");
     writeFileSync(path.join(dir, "project", "extra.lot"), "");
-    const result = await runHook("session-context.mjs", {}, { CURSOR_PROJECT_DIR: dir });
-    assert.match(result.additional_context, /mqtt:\/\/10\.0\.0\.5:1883/);
+    const result = await runHook("session-context.mjs", {}, { ...isolatedEnv(home), CURSOR_PROJECT_DIR: dir });
+    assert.match(result.additional_context, /Active broker profile "workspace" → mqtt:\/\/10\.0\.0\.5:1883 as root/);
+    assert.match(result.additional_context, /Other profiles: localhost/);
     assert.match(result.additional_context, /1 \.lotnb notebook\(s\) and 1 \.lot file\(s\)/);
 
     const empty = mkdtempSync(path.join(tmpdir(), "cf-hook-empty-"));
     try {
-      assert.deepEqual(await runHook("session-context.mjs", {}, { CURSOR_PROJECT_DIR: empty }), {});
+      const bare = await runHook("session-context.mjs", {}, { ...isolatedEnv(home), CURSOR_PROJECT_DIR: empty });
+      assert.match(bare.additional_context, /Active broker profile "localhost"/);
+      assert.match(bare.additional_context, /No other broker profiles/);
+      assert.doesNotMatch(bare.additional_context, /notebook/);
+
+      const multi = await runHook("session-context.mjs", {}, { ...isolatedEnv(home), CURSOR_PROJECT_DIR: empty, COREFLUX_BROKERS: "edge=mqtt://edge:1883; prod=mqtts://prod:8883", COREFLUX_BROKER: "prod" });
+      assert.match(multi.additional_context, /Active broker profile "prod" → mqtts:\/\/prod:8883 \(chosen by COREFLUX_BROKER variable\)/);
+      assert.match(multi.additional_context, /Other profiles: edge, localhost/);
     } finally {
       rmSync(empty, { recursive: true, force: true });
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("extension hook installs the LOT Notebooks extension once and caches the result", async () => {
+  const { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const home = mkdtempSync(path.join(tmpdir(), "cf-ext-home-"));
+  const fakeCliDir = mkdtempSync(path.join(tmpdir(), "cf-ext-cli-"));
+  // A stand-in for the `cursor` CLI: lists whatever is in installed.txt and appends on install.
+  const installedFile = path.join(fakeCliDir, "installed.txt");
+  const cli = path.join(fakeCliDir, "fake-cursor.mjs");
+  writeFileSync(
+    cli,
+    `import { readFileSync, appendFileSync, existsSync } from "node:fs";
+const file = ${JSON.stringify(installedFile)};
+const [command, id] = process.argv.slice(2);
+if (command === "--list-extensions") process.stdout.write(existsSync(file) ? readFileSync(file, "utf8") : "");
+else if (command === "--install-extension") appendFileSync(file, id + "\\n");
+else process.exit(2);
+`,
+  );
+  const env = { COREFLUX_HOME: home, COREFLUX_CURSOR_CLI: JSON.stringify([process.execPath, cli]) };
+  const stateFile = path.join(home, "plugin-state.json");
+  try {
+    writeFileSync(installedFile, "github.copilot\n");
+    const first = await runHook("ensure-lot-extension.mjs", {}, env);
+    assert.match(first.additional_context, /coreflux\.vscode-lot-notebooks.*being installed/);
+    await new Promise((resolve) => setTimeout(resolve, 700)); // detached install runs in the background
+    assert.match(readFileSync(installedFile, "utf8"), /coreflux\.vscode-lot-notebooks/);
+    assert.equal(JSON.parse(readFileSync(stateFile, "utf8")).lotExtension.installed, false);
+
+    const second = await runHook("ensure-lot-extension.mjs", {}, env);
+    assert.deepEqual(second, {}, "already installed → nothing to say");
+    const state = JSON.parse(readFileSync(stateFile, "utf8"));
+    assert.equal(state.lotExtension.installed, true);
+
+    writeFileSync(installedFile, ""); // extension removed, but the daily cache says installed
+    assert.deepEqual(await runHook("ensure-lot-extension.mjs", {}, env), {});
+
+    assert.deepEqual(await runHook("ensure-lot-extension.mjs", {}, { ...env, COREFLUX_INSTALL_LOT_EXTENSION: "false" }), {});
+    writeFileSync(stateFile, JSON.stringify({ installLotExtension: false }));
+    assert.deepEqual(await runHook("ensure-lot-extension.mjs", {}, env), {});
+    assert.ok(existsSync(stateFile));
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(fakeCliDir, { recursive: true, force: true });
   }
 });

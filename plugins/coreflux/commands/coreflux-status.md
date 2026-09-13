@@ -5,9 +5,9 @@ description: Health snapshot of the connected Coreflux broker — routes, projec
 
 # Coreflux broker status
 
-1. Run `broker_connection`. If it fails, explain how to configure the connection (plugin
-   variables `COREFLUX_MQTT_URL` / `COREFLUX_MQTT_USERNAME` / `COREFLUX_MQTT_PASSWORD`, or a
-   `.broker` file in the workspace root) and stop.
+1. Run `broker_connection`. If it fails, point to `/coreflux-connect` (pick another profile or
+   save one with `broker_save`) and stop. If other profiles exist and the user named one,
+   `broker_use` it first.
 2. Run `broker_overview`.
 3. For every route that is not `Connected`/`Green`, run
    `mqtt_read_retained $SYS/Coreflux/Routes/<name>/status` and note `errors.consecutive`,

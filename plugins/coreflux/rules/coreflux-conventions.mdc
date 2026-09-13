@@ -12,6 +12,9 @@ alwaysApply: true
   `mqtt_publish`, `mqtt_subscribe`, `mqtt_read_retained`, `broker_action_trace`,
   `broker_route_template`, `project_upload`, `project_export`, `broker_connection`.
   If no broker is reachable, still lint, and hand the user the exact `-command` payload.
+- **Several brokers may be configured as profiles.** `broker_list` shows them, `broker_use`
+  switches, `broker_save` adds one. Name the active profile whenever you deploy or publish, and
+  ask before switching to a profile that looks like production.
 - **Lint before deploy, verify after deploy.** `lot_lint` → deploy → read every envelope
   (`success`, `errors[]`) → prove the effect with `broker_action_trace` / `mqtt_subscribe` /
   route `status`. Never claim something works without seeing it on a topic or in an envelope.

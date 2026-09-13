@@ -15,7 +15,10 @@ Author, deploy and operate Coreflux MQTT brokers from Cursor.
 
 | Tool | Purpose |
 |------|---------|
-| `broker_connection` | Resolve + test the MQTT connection, report the user and permissions |
+| `broker_connection` | Resolve + test the active profile's MQTT connection, report the user and permissions |
+| `broker_list` | Every configured broker profile and which one is active |
+| `broker_use` | Switch profile for the session, or persist the choice in the workspace/user file |
+| `broker_save` / `broker_remove` | Add, edit or delete a profile in `~/.coreflux/brokers.json` or `.coreflux/brokers.json` |
 | `broker_command` | Run any `-command` on `$SYS/Coreflux/Command`, return the correlated JSON envelope |
 | `broker_overview` | Routes, projects, active project, pending entities, retained action errors |
 | `mqtt_publish` | Publish to any topic (QoS 0/1, retain) |
@@ -30,9 +33,22 @@ Author, deploy and operate Coreflux MQTT brokers from Cursor.
 | `project_upload` | Zip a folder → `-addProject zip64:… [name] [load]` |
 | `project_export` | `-getProject` → write the zip locally |
 
-Connection settings: `COREFLUX_MQTT_URL`, `COREFLUX_MQTT_USERNAME`, `COREFLUX_MQTT_PASSWORD`,
-`COREFLUX_MQTT_CLIENT_ID`, `COREFLUX_MQTT_TLS_INSECURE` (plugin variables → env), else a
-`.broker` file in the working directory, else `mqtt://localhost:1883`.
+#### Broker profiles
+
+The tools always talk to the **active profile**. Profiles are merged from (later wins):
+
+| Source | Format |
+|--------|--------|
+| built in | `localhost` → anonymous `mqtt://localhost:1883` |
+| plugin variable `COREFLUX_BROKERS` | `local=mqtt://root:pass@localhost:1883; edge=mqtts://ops:pass@10.0.0.5:8883?tlsInsecure=true; prod=mqtts://mqtt.example.com:8883?passwordEnv=PROD_MQTT_PASSWORD` or a JSON object |
+| `~/.coreflux/brokers.json` | `{ "active": "local", "brokers": { "local": { "url", "username", "password" \| "passwordEnv", "clientId", "tlsInsecure", "description" } } }` |
+| `<workspace>/.coreflux/brokers.json` | same shape; use `passwordEnv` there, never `password` |
+| `<workspace>/.broker` | legacy single broker → profile `workspace` |
+| plugin variables `COREFLUX_MQTT_URL` / `_USERNAME` / `_PASSWORD` / `_CLIENT_ID` / `_TLS_INSECURE` | single broker → profile `default` |
+
+Active profile, first match: `broker_use` in this session → `COREFLUX_BROKER` variable →
+workspace file `active` → user file `active` → `default` → `workspace` → `localhost`.
+`/coreflux-connect` walks the user through listing, switching and adding profiles.
 
 ### Skills (`skills/`)
 
@@ -57,14 +73,15 @@ Connection settings: `COREFLUX_MQTT_URL`, `COREFLUX_MQTT_USERNAME`, `COREFLUX_MQ
 
 ### Commands (`commands/`)
 
-`/coreflux-status` · `/coreflux-deploy` · `/coreflux-new-route` · `/coreflux-new-project` ·
-`/coreflux-debug-action` · `/coreflux-secure`
+`/coreflux-setup` · `/coreflux-connect` · `/coreflux-status` · `/coreflux-deploy` ·
+`/coreflux-new-route` · `/coreflux-new-project` · `/coreflux-debug-action` · `/coreflux-secure`
 
 ### Hooks (`hooks/hooks.json`)
 
 | Hook | Script | Effect |
 |------|--------|--------|
-| `sessionStart` | `scripts/hooks/session-context.mjs` | Injects the workspace `.broker` URL and notebook count into the session |
+| `sessionStart` | `scripts/hooks/session-context.mjs` | Injects the active broker profile, the other profiles and the notebook count into the session |
+| `sessionStart` | `scripts/hooks/ensure-lot-extension.mjs` | Installs the [LOT Notebooks](https://github.com/CorefluxCommunity/VSCodeLotNotebook) editor extension (`coreflux.vscode-lot-notebooks`) through the Cursor CLI when it is missing (checked once a day; opt out with `COREFLUX_INSTALL_LOT_EXTENSION=false` or `{"installLotExtension": false}` in `~/.coreflux/plugin-state.json`) |
 | `beforeMCPExecution` (failClosed) | `scripts/hooks/guard-broker-tools.mjs` | Asks for approval before `-removeAll*`, `-removeProject`, `-unloadProject`, `-removeUser`, `-restoreRules`, user/password changes, licence loads, retained `$SYS` publishes, and `project_upload … load` |
 | `beforeShellExecution` | `scripts/hooks/guard-shell-commands.mjs` | Same guard for `mosquitto_pub`-style shell commands targeting `$SYS/Coreflux/Command` |
 

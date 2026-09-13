@@ -7,6 +7,8 @@
       "command": "node",
       "args": ["${CURSOR_PLUGIN_ROOT}/scripts/mcp/coreflux-mqtt-mcp.mjs"],
       "env": {
+        "COREFLUX_BROKERS": "${COREFLUX_BROKERS}",
+        "COREFLUX_BROKER": "${COREFLUX_BROKER}",
         "COREFLUX_MQTT_URL": "${COREFLUX_MQTT_URL}",
         "COREFLUX_MQTT_USERNAME": "${COREFLUX_MQTT_USERNAME}",
         "COREFLUX_MQTT_PASSWORD": "${COREFLUX_MQTT_PASSWORD}",

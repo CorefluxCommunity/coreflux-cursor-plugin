@@ -4,22 +4,18 @@
 // Exposes the Coreflux broker command surface ($SYS/Coreflux/Command -> $SYS/Coreflux/Command/Output)
 // plus raw MQTT publish/subscribe, LoT linting, and .lot/.lotnb deployment as MCP tools.
 //
-// Connection settings (first match wins):
-//   1. COREFLUX_MQTT_URL / COREFLUX_MQTT_USERNAME / COREFLUX_MQTT_PASSWORD / COREFLUX_MQTT_CLIENT_ID env vars
-//   2. A `.broker` file (COREFLUX_BROKER_FILE, else ./.broker in the current working directory):
-//        mqtt://host:1883
-//        username=...      (optional)
-//        password=...      (optional)
-//        clientId=...      (optional)
-//   3. mqtt://localhost:1883, anonymous
+// Connection settings come from named broker profiles (see ./lib/brokers.mjs): plugin variables
+// (COREFLUX_BROKERS, COREFLUX_MQTT_*), ~/.coreflux/brokers.json, <cwd>/.coreflux/brokers.json and
+// the legacy <cwd>/.broker file. `broker_list` shows them, `broker_use` switches at runtime.
 
-import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import { MqttClient, topicMatches } from "./lib/mqtt-client.mjs";
 import { deployCommand, lintLot, loadLotFile, sortForDeploy, splitLotEntities, ENTITY_COMMANDS } from "./lib/lot.mjs";
 import { zipDirectory } from "./lib/zip.mjs";
+import { describeProfiles, loadProfiles, removeProfile, resolveSettings as resolveProfileSettings, saveProfile, setActiveProfile } from "./lib/brokers.mjs";
 
 const SERVER_NAME = "coreflux-broker";
 const SERVER_VERSION = "0.1.0";
@@ -32,44 +28,15 @@ const MAX_SUBSCRIBE_MS = 120000;
 // Connection settings
 // ---------------------------------------------------------------------------------------------
 
-function envValue(name) {
-  const value = process.env[name];
-  if (value === undefined || value === null) return undefined;
-  const trimmed = String(value).trim();
-  if (trimmed === "" || trimmed.startsWith("${")) return undefined; // unexpanded plugin variable
-  return trimmed;
-}
-
-function readBrokerFile() {
-  const candidates = [envValue("COREFLUX_BROKER_FILE"), path.join(process.cwd(), ".broker")].filter(Boolean);
-  for (const candidate of candidates) {
-    if (!existsSync(candidate)) continue;
-    const lines = readFileSync(candidate, "utf8").split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
-    const settings = { file: candidate };
-    for (const line of lines) {
-      if (/^[a-z]+:\/\//i.test(line)) {
-        settings.url = line;
-        continue;
-      }
-      const eq = line.indexOf("=");
-      if (eq > 0) settings[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
-    }
-    return settings;
-  }
-  return null;
-}
+/** Profile chosen with broker_use for the lifetime of this server process (null = configured default). */
+let sessionProfile = null;
 
 function resolveSettings() {
-  const file = readBrokerFile() ?? {};
-  const url = envValue("COREFLUX_MQTT_URL") ?? file.url ?? "mqtt://localhost:1883";
-  return {
-    url,
-    username: envValue("COREFLUX_MQTT_USERNAME") ?? file.username ?? file.user,
-    password: envValue("COREFLUX_MQTT_PASSWORD") ?? file.password,
-    clientId: envValue("COREFLUX_MQTT_CLIENT_ID") ?? file.clientId,
-    rejectUnauthorized: (envValue("COREFLUX_MQTT_TLS_INSECURE") ?? file.tlsInsecure ?? "false").toLowerCase() !== "true",
-    source: envValue("COREFLUX_MQTT_URL") ? "environment" : file.url ? `file ${file.file}` : "default (mqtt://localhost:1883)",
-  };
+  return resolveProfileSettings({ sessionOverride: sessionProfile });
+}
+
+function currentProfiles() {
+  return loadProfiles({ sessionOverride: sessionProfile });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -228,6 +195,19 @@ class BrokerSession {
     this.client = null;
     this.outputSubscribed = false;
   }
+
+  /** Drops the current connection so the next call connects with the (possibly new) active profile. */
+  async reset() {
+    try {
+      await this.close();
+    } catch {
+      // the old connection may already be gone
+    }
+    for (const waiter of this.waiters.splice(0)) {
+      clearTimeout(waiter.timer);
+      waiter.reject(new Error("Broker profile changed while waiting for a response"));
+    }
+  }
 }
 
 const session = new BrokerSession();
@@ -351,17 +331,21 @@ const tools = [
   {
     name: "broker_connection",
     description:
-      "Show the resolved Coreflux broker connection (URL, user, source of the settings) and test it by connecting over MQTT. Use first when a broker call fails or when the user asks which broker is configured.",
+      "Show the active Coreflux broker profile (name, URL, user, where the settings came from) and test it by connecting over MQTT. Use first when a broker call fails or when the user asks which broker is configured. To see or switch between several brokers use broker_list / broker_use.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     async run() {
       const settings = resolveSettings();
+      const loaded = currentProfiles();
       const report = {
+        profile: settings.profile,
         url: settings.url,
         username: settings.username ?? null,
         password: settings.password ? "•••••" : null,
         clientId: settings.clientId ?? "(random cursor-coreflux-*)",
         tlsVerification: settings.rejectUnauthorized,
         settingsSource: settings.source,
+        otherProfiles: Object.keys(loaded.profiles).filter((name) => name !== settings.profile),
+        warnings: settings.warnings.length ? settings.warnings : undefined,
         cwd: process.cwd(),
       };
       try {
@@ -380,9 +364,112 @@ const tools = [
         report.connected = false;
         report.error = error.message;
         report.hint =
-          "Set COREFLUX_MQTT_URL / COREFLUX_MQTT_USERNAME / COREFLUX_MQTT_PASSWORD (plugin variables or environment), or create a .broker file in the workspace root with the mqtt:// URL on the first line.";
+          "Pick another profile with broker_use, save one with broker_save (name + mqtt:// url + credentials), or set the COREFLUX_MQTT_URL / COREFLUX_MQTT_USERNAME / COREFLUX_MQTT_PASSWORD plugin variables.";
       }
       return text(report);
+    },
+  },
+  {
+    name: "broker_list",
+    description:
+      "List every configured Coreflux broker profile (name, URL, user, auth kind, where it is defined) and which one is active. Profiles come from the COREFLUX_BROKERS plugin variable, ~/.coreflux/brokers.json, <workspace>/.coreflux/brokers.json, a workspace .broker file and the COREFLUX_MQTT_* variables. Call this when the user mentions another broker, environment (dev/edge/prod) or asks what is connected.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    async run() {
+      const loaded = currentProfiles();
+      return text({
+        active: loaded.active,
+        activeSource: loaded.activeSource,
+        profiles: describeProfiles(loaded),
+        files: loaded.files,
+        warnings: loaded.warnings.length ? loaded.warnings : undefined,
+        hint: "broker_use <name> switches; broker_save adds or edits a profile; the COREFLUX_BROKER plugin variable fixes the default.",
+      });
+    },
+  },
+  {
+    name: "broker_use",
+    description:
+      "Switch the broker the tools talk to. Takes a profile name from broker_list; disconnects the current session and reconnects to the chosen broker on the next call. persist=\"session\" (default) only affects this MCP session; \"workspace\" writes .coreflux/brokers.json in the working directory so the project remembers it; \"user\" writes ~/.coreflux/brokers.json for every workspace.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Profile name, e.g. local, edge-line-3, prod." },
+        persist: { type: "string", enum: ["session", "workspace", "user"], description: "Where to remember the choice (default session)." },
+        connect: { type: "boolean", description: "Connect immediately to verify (default true)." },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    async run({ name, persist, connect }) {
+      const loaded = loadProfiles();
+      if (!loaded.profiles[name]) return errorResult(`Unknown profile "${name}". Known profiles: ${Object.keys(loaded.profiles).join(", ")}. Use broker_save to add one.`);
+      const result = { profile: name, url: loaded.profiles[name].url, persisted: persist ?? "session" };
+      if (persist === "workspace" || persist === "user") result.file = setActiveProfile({ scope: persist, name }).file;
+      sessionProfile = name;
+      await session.reset();
+      if (connect ?? true) {
+        try {
+          const client = await session.connect();
+          result.connected = true;
+          result.clientId = client.clientId;
+          result.username = client.username ?? null;
+        } catch (error) {
+          result.connected = false;
+          result.error = error.message;
+        }
+      }
+      return text(result);
+    },
+  },
+  {
+    name: "broker_save",
+    description:
+      "Create or update a named broker profile in ~/.coreflux/brokers.json (scope user, default) or <cwd>/.coreflux/brokers.json (scope workspace — do not commit passwords; prefer passwordEnv there). Pass activate=true to also make it the active profile. Only provided fields change; pass null to clear a field.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Profile name (letters, digits, . _ -)." },
+        url: { type: "string", description: "mqtt://host:1883 or mqtts://host:8883." },
+        username: { type: ["string", "null"] },
+        password: { type: ["string", "null"], description: "Stored in clear text in the JSON file (mode 600 on POSIX). Prefer passwordEnv for shared or committed files." },
+        passwordEnv: { type: ["string", "null"], description: "Name of an environment variable holding the password." },
+        clientId: { type: ["string", "null"] },
+        tlsInsecure: { type: ["boolean", "null"], description: "Accept self-signed certificates on mqtts://." },
+        description: { type: ["string", "null"] },
+        scope: { type: "string", enum: ["user", "workspace"], description: "Default user." },
+        activate: { type: "boolean", description: "Also select it (persisted in the same file)." },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    async run({ scope, activate, ...fields }) {
+      const saved = saveProfile({ scope: scope ?? "user", activate: activate ?? false, ...fields });
+      if (activate) {
+        sessionProfile = fields.name;
+        await session.reset();
+      }
+      return text({ ...saved, note: activate ? "Profile saved and selected for this session." : "Profile saved. Use broker_use to switch to it." });
+    },
+  },
+  {
+    name: "broker_remove",
+    description: "Delete a broker profile from the user (~/.coreflux/brokers.json) or workspace (.coreflux/brokers.json) file. Built-in and variable-defined profiles cannot be removed this way.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        scope: { type: "string", enum: ["user", "workspace"], description: "Default user." },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    async run({ name, scope }) {
+      const result = removeProfile({ scope: scope ?? "user", name });
+      if (sessionProfile === name) {
+        sessionProfile = null;
+        await session.reset();
+      }
+      return text(result);
     },
   },
   {
@@ -410,7 +497,8 @@ const tools = [
       "One-shot health snapshot of the connected Coreflux broker: routes with connection/health, projects, active project, route connection status, pending models/actions, and any retained action errors from $SYS/Coreflux/Actions/+/Error.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     async run() {
-      const overview = { broker: resolveSettings().url };
+      const settings = resolveSettings();
+      const overview = { profile: settings.profile, broker: settings.url };
       const steps = [
         ["routes", "-listRoutes"],
         ["projects", "-listProjects"],
@@ -729,6 +817,7 @@ const INSTRUCTIONS = [
   "Coreflux broker tools over MQTT.",
   `Commands go to ${COMMAND_TOPIC}; replies arrive on ${OUTPUT_TOPIC} as a JSON envelope {success, command, message, data, errors[]}.`,
   "Prefer lotnb_deploy / lot_deploy for files, lot_lint before deploying, broker_overview for health, mqtt_subscribe to verify data flow.",
+  "Several brokers can be configured as profiles: broker_list shows them, broker_use <name> switches; always say which profile a change went to.",
   "Destructive commands (-removeAll*, -removeProject, -restoreRules, -removeUser) must be confirmed by the user first.",
 ].join(" ");
 

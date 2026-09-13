@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "coreflux-docs": {
+      "url": "https://docs.coreflux.org/mcp"
+    },
+    "coreflux-broker": {
+      "command": "node",
+      "args": ["${CURSOR_PLUGIN_ROOT}/scripts/mcp/coreflux-mqtt-mcp.mjs"],
+      "env": {
+        "COREFLUX_MQTT_URL": "${COREFLUX_MQTT_URL}",
+        "COREFLUX_MQTT_USERNAME": "${COREFLUX_MQTT_USERNAME}",
+        "COREFLUX_MQTT_PASSWORD": "${COREFLUX_MQTT_PASSWORD}",
+        "COREFLUX_MQTT_CLIENT_ID": "${COREFLUX_MQTT_CLIENT_ID}",
+        "COREFLUX_MQTT_TLS_INSECURE": "${COREFLUX_MQTT_TLS_INSECURE}"
+      }
+    }
+  }
+}

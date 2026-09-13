@@ -1,0 +1,30 @@
+---
+description: How to work with Coreflux brokers and LoT (Language of Things) in this workspace — tool selection, safety, and conventions that apply to every Coreflux task
+alwaysApply: true
+---
+
+# Coreflux conventions
+
+- **LoT is the only configuration language** for actions, models, routes, rules, panels and
+  themes. Never propose JSON/YAML for these. Read the `lot-authoring` skill before writing LoT.
+- **Talk to the broker through the `coreflux-broker` MCP tools**, not ad-hoc shell MQTT
+  clients: `broker_command`, `broker_overview`, `lot_lint`, `lot_deploy`, `lotnb_deploy`,
+  `mqtt_publish`, `mqtt_subscribe`, `mqtt_read_retained`, `broker_action_trace`,
+  `broker_route_template`, `project_upload`, `project_export`, `broker_connection`.
+  If no broker is reachable, still lint, and hand the user the exact `-command` payload.
+- **Lint before deploy, verify after deploy.** `lot_lint` → deploy → read every envelope
+  (`success`, `errors[]`) → prove the effect with `broker_action_trace` / `mqtt_subscribe` /
+  route `status`. Never claim something works without seeing it on a topic or in an envelope.
+- **Broker error messages win.** When a parse error comes back, fix the LoT to satisfy the
+  parser; do not retry the same text.
+- **Destructive commands need an explicit request from the user in this conversation:**
+  `-removeAll*`, `-removeProject`, `-unloadProject`, `-removeUser`, `-restoreRules`,
+  `-changeUserPassword`, `-changeUserSettings`, `-loadLicense`. State the consequence first.
+- **Credentials never appear in LoT or notebooks.** Use `GET ENV` / `GET SECRET` and tell the
+  user which `-setEnv` / `-setSecret` names to create. Never echo a secret value.
+- **Test traffic is real traffic.** Before `mqtt_publish` on a topic that routes or actions
+  consume on a non-local broker, say what will be published and why.
+- **Docs:** search the `coreflux-docs` MCP server (docs.coreflux.org) for route settings,
+  syntax you are unsure of, or version-specific behaviour, and cite the page.
+- Write "LoT" in prose, `lot` as the code-fence language; `$SYS/Coreflux/…` topics are
+  case-sensitive; topic positions and query placeholders are 1-based.

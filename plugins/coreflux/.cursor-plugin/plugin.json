@@ -1,0 +1,59 @@
+{
+  "name": "coreflux",
+  "displayName": "Coreflux",
+  "version": "0.1.0",
+  "description": "Author, deploy, and operate Coreflux MQTT brokers from Cursor. LoT (Language of Things) authoring skills, every broker command over MQTT ($SYS/Coreflux/Command), live topic publish/subscribe, notebook deployment, docs search, and safety hooks for destructive operations.",
+  "author": {
+    "name": "Coreflux",
+    "email": "support@coreflux.org"
+  },
+  "homepage": "https://docs.coreflux.org",
+  "repository": "https://github.com/CorefluxCommunity/coreflux-cursor-plugin",
+  "license": "MIT",
+  "keywords": [
+    "coreflux",
+    "mqtt",
+    "iot",
+    "lot",
+    "language-of-things",
+    "industrial",
+    "edge",
+    "modbus",
+    "opcua",
+    "sparkplug",
+    "broker"
+  ],
+  "logo": "assets/logo.svg",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "COREFLUX_MQTT_URL": {
+        "type": "string",
+        "title": "Broker URL",
+        "description": "MQTT URL of the Coreflux broker, e.g. mqtt://localhost:1883 or mqtts://broker.example.com:8883. Falls back to a .broker file in the workspace, then mqtt://localhost:1883.",
+        "default": "mqtt://localhost:1883"
+      },
+      "COREFLUX_MQTT_USERNAME": {
+        "type": "string",
+        "title": "Broker username",
+        "description": "MQTT username used for broker commands. Needs CommandCall permission (root, admin, or AllowedSystemConfiguration)."
+      },
+      "COREFLUX_MQTT_PASSWORD": {
+        "type": "string",
+        "title": "Broker password",
+        "description": "MQTT password for the user above."
+      },
+      "COREFLUX_MQTT_CLIENT_ID": {
+        "type": "string",
+        "title": "Client id",
+        "description": "Optional fixed MQTT client id. A random cursor-coreflux-* id is used when empty."
+      },
+      "COREFLUX_MQTT_TLS_INSECURE": {
+        "type": "string",
+        "title": "Skip TLS verification",
+        "description": "Set to \"true\" to accept self-signed broker certificates on mqtts:// connections (development only).",
+        "default": "false"
+      }
+    }
+  }
+}

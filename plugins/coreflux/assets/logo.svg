@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Coreflux">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111118"/>
+      <stop offset="1" stop-color="#0a0a0f"/>
+    </linearGradient>
+    <linearGradient id="flux" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <!-- broker core -->
+  <circle cx="128" cy="128" r="34" fill="none" stroke="url(#flux)" stroke-width="14"/>
+  <!-- flux arcs: data flowing through the broker -->
+  <path d="M40 128 C 40 74, 74 40, 128 40" fill="none" stroke="#f97316" stroke-width="12" stroke-linecap="round"/>
+  <path d="M216 128 C 216 182, 182 216, 128 216" fill="none" stroke="#f97316" stroke-width="12" stroke-linecap="round"/>
+  <path d="M128 40 C 160 40, 186 58, 202 84" fill="none" stroke="#fb923c" stroke-width="12" stroke-linecap="round" opacity="0.55"/>
+  <path d="M128 216 C 96 216, 70 198, 54 172" fill="none" stroke="#fb923c" stroke-width="12" stroke-linecap="round" opacity="0.55"/>
+  <!-- topic nodes -->
+  <circle cx="40" cy="128" r="10" fill="#fafafa"/>
+  <circle cx="216" cy="128" r="10" fill="#fafafa"/>
+  <circle cx="128" cy="40" r="10" fill="#fafafa"/>
+  <circle cx="128" cy="216" r="10" fill="#fafafa"/>
+</svg>

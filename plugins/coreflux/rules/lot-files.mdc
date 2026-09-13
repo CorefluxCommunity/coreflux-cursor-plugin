@@ -1,0 +1,24 @@
+---
+description: Editing rules for .lot and .lotnb files — notebook JSON shape, cell conventions, indentation, and mandatory lint/deploy checks
+globs: ["**/*.lotnb", "**/*.lot"]
+alwaysApply: false
+---
+
+# Editing `.lot` / `.lotnb`
+
+- A `.lotnb` is a JSON **array** of `{ "kind", "language", "value" }` cells. `kind: 1` is
+  markdown, `kind: 2` is code with `language` `lot` | `python` | `shellscript`. No wrapper object.
+- Inside `value`, newlines are `\n`, quotes are `\"`, indentation is **4 spaces**. Keep the file
+  valid JSON — a stray control character breaks the whole notebook.
+- One `lot` cell may hold several `DEFINE` blocks. Put a short markdown cell before each
+  logical group explaining topics in/out and how to test.
+- `python` cells start with `# Script Name: Name` (valid identifier). `shellscript` cells are
+  documentation only.
+- Triggers (`ON …`) sit at the same column as `DEFINE ACTION`; bodies indent 4 spaces.
+  Action names unquoted, model/rule/panel names quoted, keywords uppercase, variables in
+  `{braces}`, credentials via `GET ENV` / `GET SECRET`.
+- After every edit run `lot_lint { path }` on the file. Before claiming a notebook is done run
+  `lotnb_deploy { path, dryRun: true }` to confirm the plan (order: models → actions → routes →
+  rules → python → themes → panels), then deploy for real if a broker is configured.
+- Do not "fix" a notebook by deleting cells whose meaning you do not understand; ask.
+- Follow the `lot-authoring` and `lot-projects` skills for syntax and layout.

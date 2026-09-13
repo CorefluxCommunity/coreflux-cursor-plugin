@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node ./scripts/hooks/session-context.mjs"
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "node ./scripts/hooks/guard-broker-tools.mjs",
+        "failClosed": true
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "node ./scripts/hooks/guard-shell-commands.mjs",
+        "matcher": "mosquitto_pub|Coreflux/Command"
+      }
+    ]
+  }
+}

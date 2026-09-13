@@ -1,0 +1,20 @@
+{
+  "name": "coreflux",
+  "owner": {
+    "name": "Coreflux",
+    "email": "support@coreflux.org"
+  },
+  "metadata": {
+    "description": "Cursor plugins for the Coreflux MQTT broker and the LoT (Language of Things) runtime",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "coreflux",
+      "source": "./plugins/coreflux",
+      "description": "Author, deploy, and operate Coreflux brokers from Cursor: LoT skills, the full broker command surface over MQTT, live topic access, docs search, and safety hooks",
+      "category": "IoT",
+      "tags": ["mqtt", "iot", "lot", "industrial", "edge"]
+    }
+  ]
+}

@@ -15,7 +15,7 @@
   "scripts": {
     "validate": "node scripts/validate-template.mjs",
     "check": "node scripts/check-sources.mjs",
-    "test": "node --test \"plugins/coreflux/test/*.test.mjs\"",
+    "test": "node scripts/run-tests.mjs",
     "smoke": "node plugins/coreflux/scripts/smoke-test.mjs",
     "e2e": "node plugins/coreflux/scripts/e2e-test.mjs",
     "ci": "npm run validate && npm run check && npm test"

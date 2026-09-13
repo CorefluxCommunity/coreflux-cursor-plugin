@@ -33,7 +33,7 @@ scripts/                            repo tooling: validate, check, package, rele
 ## Running the checks
 
 ```bash
-npm run validate   # plugin structure + frontmatter (same validator as cursor/plugin-template)
+npm run validate   # plugin structure + frontmatter
 npm run check      # versions in sync, hooks/mcp wiring, docs mention real tools, LF endings
 npm test           # unit + offline end-to-end tests (fake MQTT broker, spawned MCP server)
 npm run ci         # all of the above

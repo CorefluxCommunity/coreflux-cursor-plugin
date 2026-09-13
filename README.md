@@ -12,8 +12,6 @@ themes on a Coreflux broker.
 |--------|-------------------------|
 | [`plugins/coreflux`](plugins/coreflux) | The full broker command surface over MQTT (`$SYS/Coreflux/Command`), live topic publish/subscribe, LoT lint + ordered deployment of `.lot`/`.lotnb` files, project upload/export, route templates, action tracing, docs search, five LoT/broker skills, two agents, six slash-commands and safety hooks for destructive operations. |
 
-Built from the [cursor/plugin-template](https://github.com/cursor/plugin-template).
-
 ## Install
 
 From the Cursor Marketplace, or add this repository as a plugin source. Then set the plugin

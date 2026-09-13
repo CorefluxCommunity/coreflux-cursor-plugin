@@ -13,7 +13,7 @@ Two publishing modes:
 ## Basic Structure
 
 ```
-DEFINE MODEL "Name" [COLLAPSED] [FROM "ParentModel"] [WITH TOPIC "base/topic"]
+DEFINE MODEL Name [COLLAPSED] [FROM ParentModel] [WITH TOPIC "base/topic"]
     ADD <TYPE> "fieldName" WITH TOPIC "field/topic" [AS TRIGGER]
     ADD <TYPE> "fieldName" WITH <expression>
     [STORE IN "RouteName" WITH TABLE "table_name"]
@@ -81,7 +81,7 @@ Supported expressions after `WITH`:
 
 ### COLLAPSED — publish as single JSON object
 ```
-DEFINE MODEL "Event" COLLAPSED WITH TOPIC "events/output"
+DEFINE MODEL Event COLLAPSED WITH TOPIC "events/output"
     ADD STRING "id" WITH RANDOM UUID
     ADD STRING "type" WITH "alert"
     ADD DOUBLE "value" WITH TOPIC "sensors/temp" AS TRIGGER
@@ -92,18 +92,18 @@ Without COLLAPSED, each field is published to `events/output/id`, `events/output
 
 ### KEEP — model retains its last output on MQTT (retained flag)
 ```
-DEFINE MODEL "Config" KEEP WITH TOPIC "device/config"
+DEFINE MODEL Config KEEP WITH TOPIC "device/config"
 ```
 
 ### WITH RETAIN — same as KEEP (alias)
 ```
-DEFINE MODEL "Config" WITH TOPIC "device/config" RETAIN
+DEFINE MODEL Config WITH TOPIC "device/config" RETAIN
 ```
 
 ### QoS
 ```
-DEFINE MODEL "Critical" WITH TOPIC "alerts/data" QOS1
-DEFINE MODEL "Best" WITH TOPIC "sensors/data" QOS0
+DEFINE MODEL Critical WITH TOPIC "alerts/data" QOS1
+DEFINE MODEL Best WITH TOPIC "sensors/data" QOS0
 ```
 Options: `QOS0` (default), `QOS1`, `QOS2`
 
@@ -112,7 +112,7 @@ Options: `QOS0` (default), `QOS1`, `QOS2`
 ## Model Inheritance (FROM)
 
 ```
-DEFINE MODEL "AdvancedSensor" FROM "SensorReading" WITH TOPIC "sensors/advanced"
+DEFINE MODEL AdvancedSensor FROM SensorReading WITH TOPIC "sensors/advanced"
     ADD STRING "firmware" WITH "v2.0"
     ADD DOUBLE "batteryLevel" WITH TOPIC "sensors/battery"
 ```
@@ -123,7 +123,7 @@ Child inherits all parent fields. **Parent must be defined first.**
 ## Database Storage (STORE IN)
 
 ```
-DEFINE MODEL "SensorLog" WITH TOPIC "sensors/log"
+DEFINE MODEL SensorLog WITH TOPIC "sensors/log"
     ADD DOUBLE "temperature" WITH TOPIC "sensors/temp" AS TRIGGER
     ADD STRING "timestamp" WITH TIMESTAMP "ISO"
     STORE IN "MyDB" WITH TABLE "sensor_readings"
@@ -147,11 +147,11 @@ DEFINE MODEL "SensorLog" WITH TOPIC "sensors/log"
 ## Collections (arrays of another model)
 
 ```
-DEFINE MODEL "Reading"
+DEFINE MODEL Reading
     ADD DOUBLE "value"
     ADD STRING "unit"
 
-DEFINE MODEL "SensorBatch" COLLAPSED WITH TOPIC "sensors/batch"
+DEFINE MODEL SensorBatch COLLAPSED WITH TOPIC "sensors/batch"
     ADD STRING "deviceId" WITH TOPIC "sensors/id" AS TRIGGER
     ADD COLLECTION "readings" OF "Reading"
 ```
@@ -162,7 +162,7 @@ DEFINE MODEL "SensorBatch" COLLAPSED WITH TOPIC "sensors/batch"
 
 ### Simple topic-mapped model (Default behavior)
 ```
-DEFINE MODEL "SensorReading" WITH TOPIC "factory/sensors/data"
+DEFINE MODEL SensorReading WITH TOPIC "factory/sensors/data"
     ADD STRING "deviceId" WITH TOPIC "factory/sensors/id" AS TRIGGER
     ADD DOUBLE "temperature" WITH TOPIC "factory/sensors/temp"
     ADD DOUBLE "humidity" WITH TOPIC "factory/sensors/humidity"
@@ -177,7 +177,7 @@ Publishes to:
 
 ### COLLAPSED JSON model
 ```
-DEFINE MODEL "Alert" COLLAPSED WITH TOPIC "alerts/active"
+DEFINE MODEL Alert COLLAPSED WITH TOPIC "alerts/active"
     ADD STRING "id" WITH RANDOM UUID
     ADD STRING "zone" WITH TOPIC "factory/zone" AS TRIGGER
     ADD DOUBLE "value" WITH TOPIC "factory/sensors/temp" AS TRIGGER
@@ -188,7 +188,7 @@ Publishes one JSON payload: `{"id":"...","zone":"A1","value":92.3,"severity":"cr
 
 ### Model with database storage
 ```
-DEFINE MODEL "SensorHistory" COLLAPSED WITH TOPIC "sensors/history"
+DEFINE MODEL SensorHistory COLLAPSED WITH TOPIC "sensors/history"
     ADD STRING "deviceId" WITH TOPIC "sensors/id" AS TRIGGER
     ADD DOUBLE "temperature" WITH TOPIC "sensors/temp"
     ADD DOUBLE "humidity" WITH TOPIC "sensors/humidity"
@@ -198,11 +198,11 @@ DEFINE MODEL "SensorHistory" COLLAPSED WITH TOPIC "sensors/history"
 
 ### Inherited model
 ```
-DEFINE MODEL "BaseSensor" WITH TOPIC "sensors/base"
+DEFINE MODEL BaseSensor WITH TOPIC "sensors/base"
     ADD STRING "deviceId" WITH TOPIC "sensors/id" AS TRIGGER
     ADD STRING "timestamp" WITH TIMESTAMP "ISO"
 
-DEFINE MODEL "TemperatureSensor" FROM "BaseSensor" WITH TOPIC "sensors/temperature"
+DEFINE MODEL TemperatureSensor FROM BaseSensor WITH TOPIC "sensors/temperature"
     ADD DOUBLE "celsius" WITH TOPIC "sensors/temp"
     ADD DOUBLE "fahrenheit" WITH TOPIC "sensors/temp_f"
     ADD STRING "location" WITH "Zone-A"
@@ -278,7 +278,7 @@ ON TOPIC "sensors/+/raw" DO
 
 For `OBJECT` type fields, the value is embedded as raw JSON (not as a string):
 ```
-DEFINE MODEL "KafkaMessage" COLLAPSED
+DEFINE MODEL KafkaMessage COLLAPSED
     ADD STRING "componentId"
     ADD STRING "topic"
     ADD OBJECT "payload"
@@ -304,19 +304,19 @@ ADD DOUBLE "temperature" WITH TOPIC "sensors/temp"
 
 ```
 -- WRONG: No base topic
-DEFINE MODEL "Sensor"
+DEFINE MODEL Sensor
     ADD DOUBLE "temp" WITH TOPIC "sensors/t" AS TRIGGER
 
 -- RIGHT:
-DEFINE MODEL "Sensor" WITH TOPIC "sensors/data"
+DEFINE MODEL Sensor WITH TOPIC "sensors/data"
     ADD DOUBLE "temp" WITH TOPIC "sensors/t" AS TRIGGER
 ```
 
 ```
 -- WRONG: Child model before parent
-DEFINE MODEL "Child" FROM "Parent" WITH TOPIC "c/data"
+DEFINE MODEL Child FROM Parent WITH TOPIC "c/data"
     ...
-DEFINE MODEL "Parent" WITH TOPIC "p/data"    -- too late
+DEFINE MODEL Parent WITH TOPIC "p/data"    -- too late
     ...
 
 -- RIGHT: define Parent first

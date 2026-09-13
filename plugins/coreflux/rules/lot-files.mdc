@@ -15,7 +15,8 @@ alwaysApply: false
 - `python` cells start with `# Script Name: Name` (valid identifier). `shellscript` cells are
   documentation only.
 - Triggers (`ON …`) sit at the same column as `DEFINE ACTION`; bodies indent 4 spaces.
-  Action names unquoted, model/rule/panel names quoted, keywords uppercase, variables in
+  Action/model/route/rule names are bare identifiers (never quoted), panel/theme names are
+  quoted strings, keywords uppercase, variables in
   `{braces}`, credentials via `GET ENV` / `GET SECRET`.
 - After every edit run `lot_lint { path }` on the file. Before claiming a notebook is done run
   `lotnb_deploy { path, dryRun: true }` to confirm the plan (order: models → actions → routes →

@@ -70,7 +70,7 @@ Without a configured broker, give the user the exact payload to publish:
 ### Models
 | Command | Args |
 |---|---|
-| `-addModel` | `DEFINE MODEL "Name" …` |
+| `-addModel` | `DEFINE MODEL Name …` |
 | `-removeModel` | `<name>` |
 | `-removeAllModels` | **destructive** |
 
@@ -88,7 +88,7 @@ Without a configured broker, give the user the exact payload to publish:
 ### Rules (RBAC)
 | Command | Args | Notes |
 |---|---|---|
-| `-addRule` | `DEFINE RULE "Name" WITH PRIORITY N FOR <Scope> [TO TOPIC "…"] …` | Priorities `0–99` are reserved |
+| `-addRule` | `DEFINE RULE Name WITH PRIORITY N FOR <Scope> [TO TOPIC "…"] …` | Priorities `0–99` are reserved |
 | `-removeRule` | `<name>` | Built-in rules cannot be removed |
 | `-restoreRules` | | Restores `AllowPublishTopic`, `AllowSubscribeTopic`, `AllowConnect` — **confirm first** |
 

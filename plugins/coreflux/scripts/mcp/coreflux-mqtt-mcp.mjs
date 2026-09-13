@@ -193,7 +193,9 @@ class BrokerSession {
     const finished = new Promise((resolve) => (done = resolve));
     const listener = (message) => {
       if (!topicMatches(filter, message.topic)) return;
-      if (retainedOnly && !message.retain) return;
+      // Coreflux delivers $SYS/Coreflux entity snapshots (action/model/route source, status) to a
+      // new subscriber without the retain flag on the first delivery; they are state, so keep them.
+      if (retainedOnly && !message.retain && !message.topic.startsWith("$SYS/")) return;
       messages.push(message);
       if (messages.length >= maxMessages || (stopWhen && stopWhen(message))) done();
     };
@@ -500,7 +502,7 @@ const tools = [
   {
     name: "lot_lint",
     description:
-      "Statically check LoT source for the mistakes that break the broker parser (indentation, indented triggers, missing DO/WITH/THEN, MESSAGE keyword, 0-based TOPIC POSITION, quoted action names, ADD METADATA, hardcoded passwords, PAYLOAD on timers, models without AS TRIGGER…). Pass either code or a path to a .lot/.lotnb file. Run before deploying.",
+      "Statically check LoT source for the mistakes that break the broker parser (indentation, indented triggers, missing DO/WITH/THEN, MESSAGE keyword, 0-based TOPIC POSITION, quoted action/model/route/rule names, ADD METADATA, hardcoded passwords, PAYLOAD on timers, models without AS TRIGGER…). Pass either code or a path to a .lot/.lotnb file. Run before deploying.",
     inputSchema: {
       type: "object",
       properties: {

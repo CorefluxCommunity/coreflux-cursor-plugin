@@ -17,7 +17,7 @@ A JSON **array** of cells — no wrapper object:
 ```json
 [
   { "kind": 1, "language": "markdown", "value": "# Line 3 monitoring\nWhat this notebook does." },
-  { "kind": 2, "language": "lot", "value": "DEFINE MODEL \"Reading\" COLLAPSED WITH TOPIC \"line3/reading\"\n    ADD DOUBLE \"temp\" WITH TOPIC \"line3/plc/read/Temp\" AS TRIGGER" },
+  { "kind": 2, "language": "lot", "value": "DEFINE MODEL Reading COLLAPSED WITH TOPIC \"line3/reading\"\n    ADD DOUBLE \"temp\" WITH TOPIC \"line3/plc/read/Temp\" AS TRIGGER" },
   { "kind": 2, "language": "python", "value": "# Script Name: Line3Stats\nimport statistics\n\ndef mean(values):\n    return {\"mean\": statistics.mean(values)}" },
   { "kind": 2, "language": "shellscript", "value": "mosquitto_sub -t 'line3/#' -v" }
 ]

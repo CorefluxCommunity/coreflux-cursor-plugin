@@ -57,8 +57,9 @@ When a broker is not configured, still lint, and hand the user the LoT plus the 
 | `IF` | needs `THEN`; blocks close by indentation, there is no `END IF` |
 | Triggers | end with `DO`: `ON EVERY 10 SECONDS DO` |
 | **Trigger indentation** | `ON …` sits at the **same column as `DEFINE ACTION`** (or on the DEFINE line). Body indents 4 spaces under it. |
-| Action names | Unquoted: `DEFINE ACTION Heartbeat` |
-| Model/rule/panel names | Quoted: `DEFINE MODEL "SensorReading"` |
+| Action, model, route and rule names | Bare identifiers, never quoted: `DEFINE ACTION Heartbeat`, `DEFINE MODEL SensorReading`, `DEFINE ROUTE PlantDb WITH TYPE …`, `DEFINE RULE SensorAccess …`. The parser rejects `DEFINE MODEL "X"` with *STRING where IDENTIFIER was expected*. |
+| Panel and theme names | Quoted string: `DEFINE PANEL "Line 3 Overview"`, `DEFINE THEME "Dark"` (bare identifiers also parse). |
+| Model parents | Bare as well: `DEFINE MODEL Child FROM Parent WITH TOPIC "…"` |
 | Credentials | `GET ENV "NAME"` / `GET SECRET "NAME"` — never literal passwords |
 | `ADD METADATA` | Template-only; the parser rejects it in deployed routes |
 | `RETURN` | On its own line, then one indented `OUTPUT var` per line |
@@ -121,7 +122,7 @@ Full reference: [lot-actions.md](lot-actions.md)
 ## Models — quick reference
 
 ```lot
-DEFINE MODEL "SensorReading" WITH TOPIC "factory/sensors/data"
+DEFINE MODEL SensorReading WITH TOPIC "factory/sensors/data"
     ADD STRING "deviceId" WITH TOPIC "factory/sensors/id" AS TRIGGER
     ADD DOUBLE "temperature" WITH TOPIC "factory/sensors/temp"
     ADD STRING "timestamp" WITH TIMESTAMP "ISO"
@@ -182,7 +183,7 @@ Full reference: [lot-routes.md](lot-routes.md)
 ## Rules — quick reference
 
 ```lot
-DEFINE RULE "SensorAccess" WITH PRIORITY 100 FOR Subscribe TO TOPIC "sensors/#"
+DEFINE RULE SensorAccess WITH PRIORITY 100 FOR Subscribe TO TOPIC "sensors/#"
     IF USER HAS "AllowedSubscribe" THEN
         ALLOW
     ELSE

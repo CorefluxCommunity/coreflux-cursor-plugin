@@ -35,7 +35,8 @@ function stripComments(line) {
 
 /**
  * Splits LoT source into entity blocks. Every top-level `DEFINE` starts a new block; everything
- * until the next `DEFINE` belongs to it (comments between entities are attached to the following one).
+ * until the next `DEFINE` belongs to it (comments before the first entity are attached to it; comments
+ * between entities stay with the preceding one).
  * @returns {{kind: string, name: string, code: string, line: number}[]}
  */
 export function splitLotEntities(source) {
@@ -129,9 +130,9 @@ export function sortForDeploy(entities) {
 
 /** Builds the exact MQTT payload for deploying one entity. */
 export function deployCommand(entity) {
+  if (entity.kind === "THING") throw new Error("DEFINE THING is composed by the notebook runtime and cannot be deployed directly");
   const verb = ENTITY_COMMANDS[entity.kind]?.add;
   if (!verb) throw new Error(`Unsupported entity kind "${entity.kind}"`);
-  if (entity.kind === "THING") throw new Error("DEFINE THING is composed by the notebook runtime and cannot be deployed directly");
   return `${verb} ${entity.code}`;
 }
 
@@ -166,14 +167,17 @@ export function lintLot(source) {
     if (define) {
       if (indent.length > 0) add("error", lineNo, "DEFINE must start at column 0.", "Remove the leading indentation.");
       currentKind = define[1].toUpperCase();
-      if (currentKind === "ACTION" && define[3]) {
-        add("error", lineNo, `Action name "${define[3]}" is quoted; action names are unquoted.`, `Write DEFINE ACTION ${define[3]}.`);
+      if (["ACTION", "MODEL", "ROUTE", "RULE"].includes(currentKind) && define[3]) {
+        add("error", lineNo, `${currentKind.charAt(0)}${currentKind.slice(1).toLowerCase()} name "${define[3]}" is quoted; the parser expects a bare identifier.`, `Write DEFINE ${currentKind} ${define[3].replace(/[^A-Za-z0-9_]/g, "_")}.`);
+      }
+      if (currentKind === "MODEL" && /\bFROM\s+"/i.test(trimmed)) {
+        add("error", lineNo, "Parent model after FROM is quoted; use the bare identifier.", "DEFINE MODEL Child FROM Parent WITH TOPIC \"…\"");
       }
       if (currentKind === "MODEL" && /\bWITH\s+FORMATS\b/i.test(trimmed)) {
         add("error", lineNo, "WITH FORMATS is not a keyword.", "Use WITH FORMAT PROTOBUF | JSON | BOTH.");
       }
       if (currentKind === "MODEL" && /\bWITH\s+COLLAPSED\b/i.test(trimmed)) {
-        add("error", lineNo, "COLLAPSED stands alone in the model header.", 'Write DEFINE MODEL "Name" COLLAPSED WITH TOPIC "…".');
+        add("error", lineNo, "COLLAPSED stands alone in the model header.", 'Write DEFINE MODEL Name COLLAPSED WITH TOPIC "…".');
       }
       if (currentKind === "ROUTE" && !/\bWITH\s+TYPE\b/i.test(trimmed)) {
         add("error", lineNo, "DEFINE ROUTE is missing WITH TYPE <ROUTE_TYPE>.", "Add WITH TYPE POSTGRESQL, MODBUS_TCP, MQTT_BRIDGE, …");

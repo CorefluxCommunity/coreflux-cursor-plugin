@@ -29,7 +29,7 @@ bounded time), `broker_overview` (routes + projects + pending + action errors in
 | `$SYS/Coreflux/Routes/<Name>/Capabilities`, `…/Metrics` | yes | LLM/agent route capabilities + usage |
 | `$SYS/Coreflux/Routes/<Name>/Certificates` | yes | OPC UA / TLS cert store summary |
 | `$SYS/Coreflux/Routes/<Name>/Events/<Event>` | — | Publish here to trigger a route event |
-| `$SYS/Coreflux/Actions/<Name>` | yes | Deployed action LoT source |
+| `$SYS/Coreflux/Actions/<Name>` | yes (appears a few seconds after the `AddAction` envelope — re-read if empty) | Deployed action LoT source |
 | `$SYS/Coreflux/Actions/<Name>/Error` | yes | Last runtime error of the action |
 | `$SYS/Coreflux/Actions/<Name>/Trace` | — | Per-execution trace while `-actionTrace` is armed |
 | `$SYS/Coreflux/Models/<Name>`, `Rules/<Name>` | yes | Deployed model / rule source |

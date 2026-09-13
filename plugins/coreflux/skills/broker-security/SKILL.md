@@ -37,7 +37,7 @@ different account. No `Command/Output` message at all → the publish was reject
 ## Rules
 
 ```lot
-DEFINE RULE "SensorAccess" WITH PRIORITY 100 FOR Subscribe TO TOPIC "sensors/#"
+DEFINE RULE SensorAccess WITH PRIORITY 100 FOR Subscribe TO TOPIC "sensors/#"
     IF USER HAS "AllowedSubscribe" OR USER IN GROUP "operators" THEN
         ALLOW
     ELSE
@@ -69,7 +69,7 @@ present) · `GET TOPIC <expr> IS "true"` · `AND` / `OR` / `NOT`.
 ### Per-device topic isolation
 
 ```lot
-DEFINE RULE "DeviceOwnTopics" WITH PRIORITY 200 FOR Publish TO TOPIC "devices/+/#"
+DEFINE RULE DeviceOwnTopics WITH PRIORITY 200 FOR Publish TO TOPIC "devices/+/#"
     IF CLIENTID IS TOPIC POSITION 2 OR USER IS "root" THEN
         ALLOW
     ELSE
@@ -79,7 +79,7 @@ DEFINE RULE "DeviceOwnTopics" WITH PRIORITY 200 FOR Publish TO TOPIC "devices/+/
 ### Connection admission (`FOR Connect`, no topic)
 
 ```lot
-DEFINE RULE "ImeiAdmission" WITH PRIORITY 100 FOR Connect
+DEFINE RULE ImeiAdmission WITH PRIORITY 100 FOR Connect
     IF CLIENTID MATCHES REGEX "^gw[0-9]{15}$" AND TOPIC EXISTS "devices/" + CLIENTID + "/allowed" THEN
         ALLOW
     ELSE
@@ -95,7 +95,7 @@ Built-ins already deny `$SYS` to non-admins. To *widen* access (e.g. a dashboard
 route status) add a `SubscribeSys` rule in the user band:
 
 ```lot
-DEFINE RULE "OpsRouteStatus" WITH PRIORITY 100 FOR SubscribeSys TO TOPIC "$SYS/Coreflux/Routes/+/status"
+DEFINE RULE OpsRouteStatus WITH PRIORITY 100 FOR SubscribeSys TO TOPIC "$SYS/Coreflux/Routes/+/status"
     IF USER IN GROUP "ops" THEN
         ALLOW
     ELSE

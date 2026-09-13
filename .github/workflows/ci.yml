@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate manifests and sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Plugin structure and frontmatter
+        run: npm run validate
+      - name: Versions, hooks, MCP wiring, docs, line endings
+        run: npm run check
+
+  unit:
+    name: Unit tests (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+
+  integration:
+    name: End-to-end against a real Coreflux broker
+    needs: validate
+    runs-on: ubuntu-latest
+    services:
+      broker:
+        image: coreflux/coreflux-mqtt-broker:latest
+        ports:
+          - 1883:1883
+          - 9100:9100
+    env:
+      COREFLUX_MQTT_URL: mqtt://127.0.0.1:1883
+      COREFLUX_MQTT_USERNAME: root
+      COREFLUX_MQTT_PASSWORD: coreflux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for the broker
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9100/health >/dev/null 2>&1; then
+              echo "broker healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "broker did not become healthy" >&2
+          docker ps -a
+          exit 1
+      - name: Smoke test (read-only)
+        run: npm run smoke
+      - name: End-to-end (deploy, publish, trace, project round-trip, cleanup)
+        run: npm run e2e
+      - name: Broker logs on failure
+        if: failure()
+        run: docker logs "$(docker ps -q --filter ancestor=coreflux/coreflux-mqtt-broker:latest)" || true
+
+  package:
+    name: Package plugin archive
+    needs: [unit, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/package.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coreflux-plugin
+          path: dist/*
+          retention-days: 14

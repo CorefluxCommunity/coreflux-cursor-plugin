@@ -1,0 +1,23 @@
+{
+  "name": "coreflux-cursor-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cursor plugin for Coreflux MQTT brokers and LoT (Language of Things)",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CorefluxCommunity/coreflux-cursor-plugin.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "validate": "node scripts/validate-template.mjs",
+    "check": "node scripts/check-sources.mjs",
+    "test": "node --test \"plugins/coreflux/test/*.test.mjs\"",
+    "smoke": "node plugins/coreflux/scripts/smoke-test.mjs",
+    "e2e": "node plugins/coreflux/scripts/e2e-test.mjs",
+    "ci": "npm run validate && npm run check && npm test"
+  }
+}

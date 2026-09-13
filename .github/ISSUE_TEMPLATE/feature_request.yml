@@ -1,0 +1,22 @@
+name: Feature request
+description: A new tool, skill, command or improvement to how the agent works with Coreflux.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do with Coreflux from Cursor that is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: A tool, skill, command, hook or rule change. Mention the broker `-command`s or `$SYS` topics involved if you know them.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

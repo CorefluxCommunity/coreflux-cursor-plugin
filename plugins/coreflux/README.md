@@ -77,9 +77,16 @@ Connection settings: `COREFLUX_MQTT_URL`, `COREFLUX_MQTT_USERNAME`, `COREFLUX_MQ
 | manage users/groups | `AllowedUserManagement` |
 | read other `$SYS/#` topics | `AllowedSystemConfiguration` |
 
-## Smoke test
+## Tests
 
 ```bash
+npm test                                   # from the repository root: unit + offline e2e (fake broker)
 COREFLUX_MQTT_URL=mqtt://localhost:1883 COREFLUX_MQTT_USERNAME=root COREFLUX_MQTT_PASSWORD=… \
-  node scripts/smoke-test.mjs
+  node scripts/smoke-test.mjs              # read-only checks against a real broker
+COREFLUX_MQTT_URL=… COREFLUX_MQTT_USERNAME=… COREFLUX_MQTT_PASSWORD=… \
+  node scripts/e2e-test.mjs                # deploys, drives and removes throw-away entities
 ```
+
+`test/` holds `node:test` suites: the MQTT client against an in-process MQTT 3.1.1 fake broker
+(`test/helpers/fake-broker.mjs`), the LoT splitter/linter, the ZIP writer, the hook scripts, and
+the MCP server spawned over stdio with every tool exercised.

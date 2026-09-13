@@ -1,0 +1,19 @@
+# Categories for GitHub's auto-generated release notes (used as a fallback when a version has
+# no CHANGELOG section).
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: Breaking changes
+      labels: ["breaking"]
+    - title: New features
+      labels: ["enhancement", "feature"]
+    - title: Bug fixes
+      labels: ["bug", "fix"]
+    - title: Documentation and skills
+      labels: ["area: docs", "area: skills"]
+    - title: Internal
+      labels: ["area: ci", "area: tests", "dependencies"]
+    - title: Other changes
+      labels: ["*"]

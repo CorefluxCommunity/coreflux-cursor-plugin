@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Coreflux documentation
+    url: https://docs.coreflux.org
+    about: LoT syntax, route settings and broker commands.
+  - name: Coreflux broker issues
+    url: https://github.com/CorefluxCommunity/coreflux-broker-evo/issues
+    about: Bugs in the broker itself (parser, routes, runtime) rather than in this plugin.
+  - name: Security vulnerability
+    url: https://github.com/CorefluxCommunity/coreflux-cursor-plugin/security/advisories/new
+    about: Report privately; see SECURITY.md.

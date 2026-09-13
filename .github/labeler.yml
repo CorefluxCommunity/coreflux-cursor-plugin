@@ -1,0 +1,39 @@
+"area: mcp-server":
+  - changed-files:
+      - any-glob-to-any-file:
+          - plugins/coreflux/scripts/mcp/**
+          - plugins/coreflux/mcp.json
+
+"area: hooks":
+  - changed-files:
+      - any-glob-to-any-file:
+          - plugins/coreflux/hooks/**
+          - plugins/coreflux/scripts/hooks/**
+
+"area: skills":
+  - changed-files:
+      - any-glob-to-any-file:
+          - plugins/coreflux/skills/**
+          - plugins/coreflux/rules/**
+          - plugins/coreflux/agents/**
+          - plugins/coreflux/commands/**
+
+"area: tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - plugins/coreflux/test/**
+          - plugins/coreflux/scripts/smoke-test.mjs
+          - plugins/coreflux/scripts/e2e-test.mjs
+
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - scripts/**
+          - package.json
+
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - docs/**

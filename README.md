@@ -1,5 +1,9 @@
 # Coreflux plugins for Cursor
 
+[![CI](https://github.com/CorefluxCommunity/coreflux-cursor-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/CorefluxCommunity/coreflux-cursor-plugin/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/CorefluxCommunity/coreflux-cursor-plugin?include_prereleases&sort=semver)](https://github.com/CorefluxCommunity/coreflux-cursor-plugin/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Cursor Marketplace plugins for the [Coreflux MQTT broker](https://coreflux.org) and
 **LoT (Language of Things)** — the DSL that defines actions, models, routes, rules, panels and
 themes on a Coreflux broker.
@@ -48,28 +52,35 @@ dependencies** — the MQTT client is bundled.
 
 ```
 .cursor-plugin/marketplace.json   marketplace manifest
-plugins/coreflux/                 the plugin (see its README)
-scripts/validate-template.mjs     structure/frontmatter validator
+plugins/coreflux/                 the plugin (see its README); tests in plugins/coreflux/test
+scripts/                          validate, check, package and release tooling
+.github/workflows/                CI (validate → unit matrix → broker e2e → package), release
 docs/add-a-plugin.md              how to add another plugin to this repo
 ```
 
 ## Development
 
 ```bash
-node scripts/validate-template.mjs          # manifest + frontmatter checks
-node plugins/coreflux/scripts/smoke-test.mjs # talks to the broker in COREFLUX_MQTT_URL
+npm run validate   # manifest + frontmatter checks
+npm run check      # version sync, hook/MCP wiring, docs ↔ tool names, line endings
+npm test           # unit + offline end-to-end tests (in-process fake broker)
+npm run smoke      # read-only checks against COREFLUX_MQTT_URL
+npm run e2e        # full round-trip against a real broker (creates and removes test entities)
 ```
 
 The MCP server is `plugins/coreflux/scripts/mcp/coreflux-mqtt-mcp.mjs` (stdio JSON-RPC). Run it
 directly and paste JSON-RPC lines to experiment.
 
+Every push and pull request runs the validators, the unit suite on Linux/macOS/Windows with
+Node 20 and 22, and the end-to-end suite against `coreflux/coreflux-mqtt-broker:latest`. Tags
+`vX.Y.Z` publish a GitHub release with the packaged plugin and its checksum.
+
 ## Contributing
 
-Issues and PRs welcome at
-[CorefluxCommunity/coreflux-cursor-plugin](https://github.com/CorefluxCommunity/coreflux-cursor-plugin).
-Keep every LoT example copy-pastable against a current broker; the parser is the source of
-truth. Skill and rule text must stay accurate to the broker's `-command` surface documented at
-[docs.coreflux.org](https://docs.coreflux.org).
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the checks to run, how to
+write skills that stay true to the broker parser, and the release process.
+[SECURITY.md](SECURITY.md) covers vulnerability reports. Changes are tracked in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

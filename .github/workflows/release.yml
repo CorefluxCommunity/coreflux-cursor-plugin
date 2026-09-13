@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    services:
+      broker:
+        image: coreflux/coreflux-mqtt-broker:latest
+        ports:
+          - 1883:1883
+          - 9100:9100
+    env:
+      COREFLUX_MQTT_URL: mqtt://127.0.0.1:1883
+      COREFLUX_MQTT_USERNAME: root
+      COREFLUX_MQTT_PASSWORD: coreflux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tag must match the plugin version
+        run: node scripts/check-release.mjs "${GITHUB_REF_NAME}"
+
+      - name: Validate, check and test
+        run: npm run ci
+
+      - name: Wait for the broker
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:9100/health >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo "broker did not become healthy" >&2
+          exit 1
+      - name: End-to-end against the broker
+        run: npm run e2e
+
+      - name: Build archive
+        run: node scripts/package.mjs
+
+      - name: Extract changelog section
+        id: notes
+        run: node scripts/check-release.mjs "${GITHUB_REF_NAME}" --notes > dist/RELEASE_NOTES.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          PRERELEASE=""
+          case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Coreflux plugin $VERSION" \
+            --notes-file dist/RELEASE_NOTES.md \
+            --verify-tag \
+            $PRERELEASE \
+            dist/coreflux-plugin-"$VERSION".zip \
+            dist/coreflux-plugin-"$VERSION".zip.sha256

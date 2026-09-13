@@ -2,7 +2,7 @@
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -100,7 +100,8 @@ test("broker profiles: list, save, switch (session and persisted), remove", asyn
     assert.match(unknown.text, /Unknown profile "edge"/);
 
     const saved = await mcp.tool("broker_save", { name: "edge", url: second.url, username: "ops", password: "ops-pw", scope: "workspace", description: "Second fake broker" });
-    assert.equal(saved.data.file, path.join(workdir, ".coreflux", "brokers.json"));
+    // macOS reports the spawned process cwd under /private/var while mkdtemp returned /var; compare real paths.
+    assert.equal(realpathSync(saved.data.file), realpathSync(path.join(workdir, ".coreflux", "brokers.json")));
     assert.equal(saved.data.profile.password, "•••••");
     assert.equal(JSON.parse(readFileSync(saved.data.file, "utf8")).brokers.edge.username, "ops");
 
@@ -117,7 +118,7 @@ test("broker profiles: list, save, switch (session and persisted), remove", asyn
     assert.match(connection.data.settingsSource, /broker_use \(this session\)/);
 
     const persisted = await mcp.tool("broker_use", { name: "default", persist: "workspace", connect: false });
-    assert.equal(persisted.data.file, saved.data.file);
+    assert.equal(realpathSync(persisted.data.file), realpathSync(saved.data.file));
     assert.equal(JSON.parse(readFileSync(saved.data.file, "utf8")).active, "default");
     const back = await mcp.tool("broker_connection");
     assert.equal(back.data.profile, "default");

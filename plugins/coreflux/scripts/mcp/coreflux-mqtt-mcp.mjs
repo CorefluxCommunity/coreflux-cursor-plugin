@@ -590,7 +590,7 @@ const tools = [
   {
     name: "lot_lint",
     description:
-      "Statically check LoT source for the mistakes that break the broker parser (indentation, indented triggers, missing DO/WITH/THEN, MESSAGE keyword, 0-based TOPIC POSITION, quoted action/model/route/rule names, ADD METADATA, hardcoded passwords, PAYLOAD on timers, models without AS TRIGGER…). Pass either code or a path to a .lot/.lotnb file. Run before deploying.",
+      "Statically check LoT source for the mistakes that break the broker parser (indentation, indented triggers, missing DO/WITH/THEN, MESSAGE keyword, 0-based TOPIC POSITION, quoted action/model/route/agent/rule names, ADD METADATA, hardcoded passwords, PAYLOAD on timers, models without AS TRIGGER (skipped when the model inherits via FROM)…). Pass either code or a path to a .lot/.lotnb file. Run before deploying.",
     inputSchema: {
       type: "object",
       properties: {
@@ -615,7 +615,7 @@ const tools = [
   {
     name: "lot_deploy",
     description:
-      "Deploy LoT source (one or more DEFINE blocks, or a Python script with a # Script Name header) to the broker. Splits entities, lints them, deploys in broker order (models → actions → routes → rules → python → themes → panels) and returns each envelope. Use dryRun=true to see the plan first.",
+      "Deploy LoT source (one or more DEFINE blocks, or a Python script with a # Script Name header) to the broker. Splits entities, lints them, deploys in broker order (models → actions → routes → agents → rules → python → themes → panels) and returns each envelope. Use dryRun=true to see the plan first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -672,7 +672,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
-        kind: { type: "string", enum: ["ACTION", "MODEL", "ROUTE", "RULE", "PYTHON", "THEME", "PANEL"] },
+        kind: { type: "string", enum: ["ACTION", "MODEL", "ROUTE", "AGENT", "RULE", "PYTHON", "THEME", "PANEL"] },
         name: { type: "string" },
       },
       required: ["kind", "name"],

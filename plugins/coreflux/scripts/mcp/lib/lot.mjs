@@ -4,20 +4,26 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-/** Deploy verb per entity kind, in the order the broker loads projects. */
-export const ENTITY_ORDER = ["MODEL", "ACTION", "ROUTE", "RULE", "PYTHON", "THEME", "PANEL"];
+/**
+ * Deploy verb per entity kind, in the order the broker loads projects: models, actions, routes,
+ * agents (after the LLM connector they use), rules, then things (FolderLoader), then the rest.
+ */
+export const ENTITY_ORDER = ["MODEL", "ACTION", "ROUTE", "AGENT", "RULE", "THING", "PYTHON", "THEME", "PANEL"];
 
 export const ENTITY_COMMANDS = {
   MODEL: { add: "-addModel", remove: "-removeModel" },
   ACTION: { add: "-addAction", remove: "-removeAction" },
   ROUTE: { add: "-addRoute", remove: "-removeRoute" },
   RULE: { add: "-addRule", remove: "-removeRule" },
+  AGENT: { add: "-addAgent", remove: "-removeAgent" },
+  THING: { add: "-addThing", remove: "-removeThing" },
   PYTHON: { add: "-addPython", remove: "-removePython" },
   THEME: { add: "-addTheme", remove: "-removeTheme" },
   PANEL: { add: "-addPanel", remove: "-removePanel" },
 };
 
-const DEFINE_RE = /^DEFINE\s+(ACTION|MODEL|ROUTE|RULE|THEME|PANEL|VISU|THING)\b\s*("([^"]+)"|([A-Za-z0-9_\-.]+))?/i;
+// TEMPLATE is not a Thing's name: `DEFINE THING TEMPLATE "Pump"` defines the template Pump.
+const DEFINE_RE = /^DEFINE\s+(ACTION|MODEL|ROUTE|RULE|AGENT|THEME|PANEL|VISU|THING)\b\s*(?:TEMPLATE\s+)?("([^"]+)"|([A-Za-z0-9_\-.]+))?/i;
 const SCRIPT_NAME_RE = /^\s*#\s*Script Name:\s*([A-Za-z_][A-Za-z0-9_]*)\s*$/im;
 
 function stripComments(line) {
@@ -128,9 +134,25 @@ export function sortForDeploy(entities) {
   return [...entities].sort((a, b) => ENTITY_ORDER.indexOf(a.kind) - ENTITY_ORDER.indexOf(b.kind));
 }
 
+/**
+ * Sorted deploy units. All Things travel as one -addThing payload, the way the broker's own
+ * deploy groups consecutive DEFINE THING blocks, so a root can reference a template beside it.
+ */
+export function deployUnits(entities) {
+  const units = [];
+  for (const entity of sortForDeploy(entities)) {
+    const previous = units.at(-1);
+    if (entity.kind === "THING" && previous?.kind === "THING") {
+      units[units.length - 1] = { ...previous, name: `${previous.name}, ${entity.name}`, code: `${previous.code}\n\n${entity.code}`, source: previous.source === entity.source ? previous.source : `${previous.source}, ${entity.source}` };
+    } else {
+      units.push(entity);
+    }
+  }
+  return units;
+}
+
 /** Builds the exact MQTT payload for deploying one entity. */
 export function deployCommand(entity) {
-  if (entity.kind === "THING") throw new Error("DEFINE THING is composed by the notebook runtime and cannot be deployed directly");
   const verb = ENTITY_COMMANDS[entity.kind]?.add;
   if (!verb) throw new Error(`Unsupported entity kind "${entity.kind}"`);
   return `${verb} ${entity.code}`;

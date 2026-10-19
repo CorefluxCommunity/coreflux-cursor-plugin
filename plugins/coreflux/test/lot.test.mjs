@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { deployCommand, lintLot, loadLotFile, pythonScriptName, sortForDeploy, splitLotEntities } from "../scripts/mcp/lib/lot.mjs";
+import { deployCommand, deployUnits, lintLot, loadLotFile, pythonScriptName, sortForDeploy, splitLotEntities } from "../scripts/mcp/lib/lot.mjs";
 
 const VALID_ACTION = `DEFINE ACTION AlertOnHighTemp
 ON TOPIC "sensors/+/temperature" DO
@@ -52,17 +52,56 @@ test("sortForDeploy follows broker load order", () => {
     { kind: "PYTHON", name: "py" },
     { kind: "ROUTE", name: "rt" },
     { kind: "THEME", name: "t" },
+    { kind: "THING", name: "th" },
+    { kind: "AGENT", name: "ag" },
   ]);
   assert.deepEqual(
     sorted.map((entity) => entity.kind),
-    ["MODEL", "ACTION", "ROUTE", "RULE", "PYTHON", "THEME", "PANEL"],
+    ["MODEL", "ACTION", "ROUTE", "AGENT", "RULE", "THING", "PYTHON", "THEME", "PANEL"],
   );
+});
+
+const THINGS = `DEFINE THING TEMPLATE TempSensor
+    WITH PARAM limit 80
+    WITH MODEL Reading WITH TOPIC "{{path}}/reading"
+        ADD DOUBLE "temperature" WITH TOPIC "{{path}}/temp" AS TRIGGER
+    WITH ACTION Overheat
+    ON TOPIC "{{path}}/temp" DO
+        SET "temp" WITH PAYLOAD AS DOUBLE
+        IF {temp} > {{limit}} THEN
+            PUBLISH TOPIC "{{path}}/alarm" WITH "overheat " + {temp}
+
+DEFINE THING Oven
+    WITH THING inlet OF TempSensor`;
+
+const AGENT = `DEFINE AGENT LineAssistant
+    USES LLM ROUTE Gpt
+    WITH DESCRIPTION "Answers questions about production line 1"
+    WITH DEFAULT_USER "line1-agent"
+    WITH INTERACTION_TOPIC "agents/line1"
+    ADD TOOL "read_mqtt"
+        WITH TOPICS "lines/1/#"`;
+
+test("Things deploy as one -addThing unit, templates named without TEMPLATE", () => {
+  const entities = splitLotEntities(`${THINGS}\n\n${VALID_ACTION}`);
+  assert.deepEqual(entities.map((entity) => [entity.kind, entity.name]), [["THING", "TempSensor"], ["THING", "Oven"], ["ACTION", "AlertOnHighTemp"]]);
+  const units = deployUnits(entities);
+  assert.deepEqual(units.map((unit) => [unit.kind, unit.name]), [["ACTION", "AlertOnHighTemp"], ["THING", "TempSensor, Oven"]]);
+  assert.equal(deployCommand(units[1]), `-addThing ${THINGS}`);
+});
+
+test("Agents deploy with -addAgent after routes and lint clean", () => {
+  const units = deployUnits(splitLotEntities(`${AGENT}\n\n${VALID_ROUTE}`));
+  assert.deepEqual(units.map((unit) => unit.kind), ["ROUTE", "AGENT"]);
+  assert.ok(deployCommand(units[1]).startsWith("-addAgent DEFINE AGENT LineAssistant"));
+  assert.deepEqual(lintLot(AGENT).filter((finding) => finding.severity === "error"), []);
+  assert.deepEqual(lintLot(THINGS).filter((finding) => finding.severity === "error"), []);
 });
 
 test("deployCommand prefixes the right verb without wrapping quotes", () => {
   assert.equal(deployCommand({ kind: "ACTION", code: VALID_ACTION }), `-addAction ${VALID_ACTION}`);
   assert.equal(deployCommand({ kind: "PYTHON", code: "# Script Name: X\nprint(1)" }), "-addPython # Script Name: X\nprint(1)");
-  assert.throws(() => deployCommand({ kind: "THING", code: "" }), /cannot be deployed/);
+  assert.throws(() => deployCommand({ kind: "VIEW", code: "" }), /Unsupported entity kind/);
 });
 
 test("pythonScriptName reads the header", () => {

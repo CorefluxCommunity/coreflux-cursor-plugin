@@ -21,8 +21,8 @@ MQTT.
 | `validate_lot` | `lot_lint` (offline), then `broker_command { command: "-validateLot <LoT>" }` for the broker's own check |
 | `validate_lotnb` | `lot_lint { path }`, then `lotnb_deploy { path, dryRun: true }` |
 | `deploy_lot` | `lot_deploy` — not atomic: read every envelope, it does not roll back |
-| `add_action` / `add_model` / `add_route` / `add_rule` / `add_panel` / `add_theme` / `add_python` | `lot_deploy` (orders and lints for you) |
-| `add_agent`, `add_thing` | `broker_command { command: "-addAgent <DEFINE AGENT …>" }` / `"-addThing …"` — `lot_deploy` does not take these kinds |
+| `add_action` / `add_model` / `add_route` / `add_rule` / `add_agent` / `add_thing` / `add_panel` / `add_theme` / `add_python` | `lot_deploy` (orders and lints for you; all `DEFINE THING` blocks, templates included, go as one `-addThing`) |
+| `add_thing --dryRun` | `broker_command { command: "-addThing --dryRun <DEFINE THING …>" }` |
 | `remove_*` | `lot_remove { kind, name }`, or `broker_command -removeX <name>` |
 | `diagnose` | `broker_overview` |
 | `explore_topics` | `mqtt_read_retained` (state) or a bounded `mqtt_subscribe` (live) |

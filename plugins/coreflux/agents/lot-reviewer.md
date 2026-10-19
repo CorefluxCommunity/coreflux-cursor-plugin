@@ -12,7 +12,8 @@ the broker parser and runtime will. Be concrete: file, cell, line, wrong text, c
 
 1. Run `lot_lint` on every changed `.lot` / `.lotnb` (path mode) and on any inline LoT.
    Report every `error`; treat `warning`s as findings to explain.
-2. Read the code with the `lot-authoring` skill open and check what the linter cannot:
+2. Read the code with the skill for each kind open (`lot-actions`, `lot-models`, `lot-routes`,
+   `lot-rules`, `lot-panels`, `python-scripts`, …) and check what the linter cannot:
    - Wildcards and `TOPIC POSITION` indexes match the real topic shape (1-based).
    - `IF` conditions compare compatible types (`PAYLOAD AS DOUBLE` before `> 85`).
    - `GET JSON` paths exist in the payload the action really receives.

@@ -22,4 +22,5 @@ alwaysApply: false
   `lotnb_deploy { path, dryRun: true }` to confirm the plan (order: models → actions → routes →
   rules → python → themes → panels), then deploy for real if a broker is configured.
 - Do not "fix" a notebook by deleting cells whose meaning you do not understand; ask.
-- Follow the `lot-authoring` and `lot-projects` skills for syntax and layout.
+- Follow the skill for each kind (`lot-actions`, `lot-models`, `lot-routes`, …) for syntax and
+  `coreflux-cursor-tools` for deploying files and projects.

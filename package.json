@@ -15,9 +15,11 @@
   "scripts": {
     "validate": "node scripts/validate-template.mjs",
     "check": "node scripts/check-sources.mjs",
+    "skills:sync": "node scripts/sync-skills.mjs",
+    "skills:check": "node scripts/sync-skills.mjs --check",
     "test": "node scripts/run-tests.mjs",
     "smoke": "node plugins/coreflux/scripts/smoke-test.mjs",
     "e2e": "node plugins/coreflux/scripts/e2e-test.mjs",
-    "ci": "npm run validate && npm run check && npm test"
+    "ci": "npm run validate && npm run check && npm run skills:check && npm test"
   }
 }

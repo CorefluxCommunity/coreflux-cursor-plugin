@@ -26,6 +26,8 @@ jobs:
         run: npm run validate
       - name: Versions, hooks, MCP wiring, docs, line endings
         run: npm run check
+      - name: Synced skills match the pinned coreflux-skills tag
+        run: npm run skills:check
 
   unit:
     name: Unit tests (${{ matrix.os }}, Node ${{ matrix.node }})

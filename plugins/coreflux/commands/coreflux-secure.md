@@ -5,7 +5,8 @@ description: Audit a Coreflux broker's access control — users, permission flag
 
 # Secure the broker
 
-Use the `broker-security` skill throughout.
+Use the `lot-rules` skill throughout (scopes, priority bands, which scopes a user rule can
+change at all).
 
 1. `broker_connection` — which user you are; note if it is `root`.
 2. Inventory: `mqtt_read_retained $SYS/Coreflux/Rules/#` (deployed rules),
@@ -19,7 +20,6 @@ Use the `broker-security` skill throughout.
 6. Propose, in order and with the exact LoT / `-command`:
    - per-device or per-group publish/subscribe rules (priority 100–999 999, allow-list style);
    - `FOR Connect` admission if devices have a client-id pattern;
-   - `SubscribeSys` carve-outs for dashboard users instead of `AllowedSystemConfiguration`;
    - moving secrets from env to `-setSecret`;
    - password rotation via `-changeUserPassword` (values supplied by the user, never echoed).
 7. For each rule, state which users/clients it affects and confirm `root`/admin stay allowed.

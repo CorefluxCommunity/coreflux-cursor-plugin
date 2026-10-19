@@ -19,6 +19,21 @@ All notable changes to the Coreflux plugin for Cursor are documented here. The f
   (`coreflux.vscode-lot-notebooks`) through the Cursor CLI when it is missing, so `.lotnb`
   files open as notebooks.
 - Plugin logo.
+- `coreflux-cursor-tools` skill: maps the broker tool names used by the shared skills to this
+  plugin's MCP tools.
+
+### Changed
+
+- The LoT and broker skills are now a pinned copy of
+  [coreflux-skills](https://github.com/CorefluxCommunity/coreflux-skills) (tag `2.21.16-rc.186`),
+  generated from the broker: `broker-tools`, `lot-actions`, `lot-models`, `lot-routes`,
+  `lot-rules`, `lot-agents`, `lot-things`, `lot-panels`, `lot-themes`, `python-scripts`.
+  `npm run skills:sync` updates the copy and `npm run skills:check` (in CI) fails on drift.
+
+### Removed
+
+- The hand-written `lot-authoring`, `broker-commands`, `broker-observability`,
+  `broker-security` and `lot-projects` skills, replaced by the synced set above.
 
 ## [0.1.0] - 2026-09-13
 

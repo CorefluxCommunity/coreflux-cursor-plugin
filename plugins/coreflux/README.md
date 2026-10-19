@@ -52,13 +52,20 @@ workspace file `active` → user file `active` → `default` → `workspace` →
 
 ### Skills (`skills/`)
 
-| Skill | Use |
-|-------|-----|
-| `lot-authoring` | LoT syntax, decision guide, anti-patterns; references for actions, models, routes |
-| `broker-commands` | Every broker command, payload rules, envelope shape, sequences |
-| `broker-observability` | `$SYS/Coreflux` topic map, status/trace JSON, triage playbook |
-| `lot-projects` | `.lotnb` format, project layout, load order, `-addProject` / git commands |
-| `broker-security` | RBAC rules, flags, groups, which flag each command needs, anti-lockout |
+The LoT and broker skills are a pinned copy of
+[CorefluxCommunity/coreflux-skills](https://github.com/CorefluxCommunity/coreflux-skills), which is
+generated from the broker and tagged per broker release; the tag in use is `brokerVersion` in
+`skills/skills.json`. Do not edit them here — fix the broker's skill and move the pin with
+`npm run skills:sync -- --ref <tag>`. CI fails when the bundle drifts from the pinned tag.
+
+| Skill | Source | Use |
+|-------|--------|-----|
+| `broker-tools` | coreflux-skills | The broker's tool surfaces, registry commands, safe deploy workflow |
+| `lot-actions` / `lot-models` / `lot-routes` / `lot-rules` | coreflux-skills | LoT syntax per entity kind |
+| `lot-agents` / `lot-things` | coreflux-skills | `DEFINE AGENT`, `DEFINE THING` |
+| `lot-panels` / `lot-themes` | coreflux-skills | LoTV dashboards |
+| `python-scripts` | coreflux-skills | Python scripts and `CALL PYTHON` |
+| `coreflux-cursor-tools` | this plugin | Maps the broker tool names in those skills to this plugin's MCP tools; envelopes; deploying files and projects |
 
 ### Rules (`rules/`)
 

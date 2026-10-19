@@ -6,7 +6,10 @@ alwaysApply: true
 # Coreflux conventions
 
 - **LoT is the only configuration language** for actions, models, routes, rules, panels and
-  themes. Never propose JSON/YAML for these. Read the `lot-authoring` skill before writing LoT.
+  themes. Never propose JSON/YAML for these. Before writing LoT read the skill for that kind
+  (`lot-actions`, `lot-models`, `lot-routes`, `lot-rules`, `lot-agents`, `lot-things`,
+  `lot-panels`, `lot-themes`, `python-scripts`). Those skills come from the broker; where they
+  name a broker MCP tool, `coreflux-cursor-tools` gives the tool to call here.
 - **Talk to the broker through the `coreflux-broker` MCP tools**, not ad-hoc shell MQTT
   clients: `broker_command`, `broker_overview`, `lot_lint`, `lot_deploy`, `lotnb_deploy`,
   `mqtt_publish`, `mqtt_subscribe`, `mqtt_read_retained`, `broker_action_trace`,

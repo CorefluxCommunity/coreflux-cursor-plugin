@@ -8,14 +8,14 @@ description: Scaffold a Coreflux LoT project folder with numbered .lotnb noteboo
 Ask for: project name (kebab-case), what it should do (devices/sources, outputs), and which
 broker it targets (an existing profile from `broker_list`, or a new URL).
 
-1. Create the layout described in the `lot-projects` skill:
+1. Create the layout (numbered so alphabetical order matches load order):
    `README.md`, `01-models.lotnb`, `02-actions.lotnb`, `03-routes.lotnb`, `04-rules.lotnb`,
    `05-dashboard.lotnb` (skip files that would be empty). For the broker, write
    `.coreflux/brokers.json` with `broker_save { scope: "workspace", name, url, username,
    passwordEnv, activate: true }` — the password goes in an environment variable or in the
    user-scope profile of the same name, never in the project.
 2. Each notebook starts with a markdown cell (purpose, topics in/out, how to test) followed by
-   `lot` cells written with the `lot-authoring` skill. Use realistic names from the user's
+   `lot` cells written with the skill for each kind (`lot-models`, `lot-actions`, …). Use realistic names from the user's
    domain, never `foo`/`test`.
 3. README lists: what the project does, required `-setEnv` / `-setSecret` names, how to deploy
    (`project_upload` or `-addProject`), how to verify.

@@ -46,7 +46,7 @@ function countNotebooks(dir, depth = 0, acc = { lotnb: 0, lot: 0 }) {
 
 const counts = countNotebooks(root);
 if (counts.lotnb || counts.lot) {
-  lines.push(`Workspace contains ${counts.lotnb} .lotnb notebook(s) and ${counts.lot} .lot file(s): treat it as a Coreflux LoT project (skills: lot-authoring, lot-projects).`);
+  lines.push(`Workspace contains ${counts.lotnb} .lotnb notebook(s) and ${counts.lot} .lot file(s): treat it as a Coreflux LoT project (skills: coreflux-cursor-tools, then lot-actions, lot-models, lot-routes, … per kind).`);
 }
 
 respond({ additional_context: `Coreflux plugin: ${lines.join(" ")}` });

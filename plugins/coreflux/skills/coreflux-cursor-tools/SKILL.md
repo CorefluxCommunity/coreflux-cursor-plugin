@@ -39,8 +39,12 @@ MQTT.
 `broker_command` publishes a plain string to `$SYS/Coreflux/Command` (`-commandName args…`,
 LoT bodies unquoted) and returns the JSON envelope from `$SYS/Coreflux/Command/Output`:
 `success`, `message`, `data`, and on failure `errors[]` — parse errors carry `line` and
-`column`. Fix the LoT to satisfy the broker's message; never retry the same text. No envelope
-at all means the user may not call commands or read `Command/Output`.
+`column`. Fix the LoT to satisfy the broker's message; never retry the same text.
+`Permission denied` is a reply. No reply at all means the publish was dropped (the user holds
+none of `AllowedSystemConfiguration`, `AllowedUserManagement`, `AllowedLogManagement`), the user
+cannot read `Command/Output`, or the command has no MQTT reply (`-updateData`, and today
+`-checkActionUsage`, `-loadFolder`, `-mqttPacketTrace`). `broker_action_trace` runs the action for
+real: every PUBLISH goes out.
 
 Destructive commands (`-removeAll*`, `-removeProject`, `-unloadProject`, `-removeUser`,
 `-restoreRules`, …) are blocked by this plugin's hook unless the user asked for them in this

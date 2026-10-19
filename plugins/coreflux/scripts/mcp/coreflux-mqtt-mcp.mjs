@@ -590,7 +590,7 @@ const tools = [
   {
     name: "lot_lint",
     description:
-      "Statically check LoT source for the mistakes that break the broker parser (indentation, indented triggers, missing DO/WITH/THEN, MESSAGE keyword, 0-based TOPIC POSITION, quoted action/model/route/rule names, ADD METADATA, hardcoded passwords, PAYLOAD on timers, models without AS TRIGGER…). Pass either code or a path to a .lot/.lotnb file. Run before deploying.",
+      "Statically check LoT source for the mistakes that break the broker parser (indentation, indented triggers, missing DO/WITH/THEN, MESSAGE keyword, 0-based TOPIC POSITION, quoted action/model/route/agent/rule names, ADD METADATA, hardcoded passwords, PAYLOAD on timers, models without AS TRIGGER (skipped when the model inherits via FROM)…). Pass either code or a path to a .lot/.lotnb file. Run before deploying.",
     inputSchema: {
       type: "object",
       properties: {

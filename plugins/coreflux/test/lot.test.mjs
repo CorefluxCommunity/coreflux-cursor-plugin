@@ -51,9 +51,9 @@ test("sortForDeploy follows broker load order", () => {
     { kind: "MODEL", name: "m" },
     { kind: "PYTHON", name: "py" },
     { kind: "ROUTE", name: "rt" },
+    { kind: "AGENT", name: "ag" },
     { kind: "THEME", name: "t" },
     { kind: "THING", name: "th" },
-    { kind: "AGENT", name: "ag" },
   ]);
   assert.deepEqual(
     sorted.map((entity) => entity.kind),
@@ -101,6 +101,13 @@ test("Agents deploy with -addAgent after routes and lint clean", () => {
 test("deployCommand prefixes the right verb without wrapping quotes", () => {
   assert.equal(deployCommand({ kind: "ACTION", code: VALID_ACTION }), `-addAction ${VALID_ACTION}`);
   assert.equal(deployCommand({ kind: "PYTHON", code: "# Script Name: X\nprint(1)" }), "-addPython # Script Name: X\nprint(1)");
+  assert.equal(
+    deployCommand({
+      kind: "AGENT",
+      code: 'DEFINE AGENT Planner\n    USES LLM ROUTE GPT55\n    WITH DEFAULT_USER "u"',
+    }),
+    '-addAgent DEFINE AGENT Planner\n    USES LLM ROUTE GPT55\n    WITH DEFAULT_USER "u"',
+  );
   assert.throws(() => deployCommand({ kind: "VIEW", code: "" }), /Unsupported entity kind/);
 });
 
@@ -194,4 +201,127 @@ test("loadLotFile parses .lotnb cells, adds Script Name headers and sorts for de
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+const SHOWCASE_DEMO_FLIGHTS = `DEFINE AGENT DemoFlightsAgent
+    USES LLM ROUTE LocalOllama
+    WITH DESCRIPTION "Answers questions about departures and gates"
+    WITH DEFAULT_USER "flights-viewer"
+    WITH INTERACTION_TOPIC "flights/demo/assistant"
+    ADD TOOL "read_mqtt"
+        WITH TOPICS "flights/demo/#"`;
+
+const SHOWCASE_MAINTENANCE = `DEFINE AGENT MaintenancePlanner
+    USES LLM ROUTE FactoryOllama
+    WITH DESCRIPTION "Watches line 1 temperatures and OEE and writes maintenance notes"
+    WITH DEFAULT_USER "maintenance-bot"
+    WITH INTERACTION_TOPIC "bottling/line1/planner"
+    ADD TOOL "read_mqtt"
+        WITH TOPICS "bottling/#"
+    ADD TOOL "write_mqtt"
+        WITH TOPICS "bottling/line1/reports/#"
+        WITH LEVEL "write"`;
+
+const SHOWCASE_ENERGY = `DEFINE AGENT EnergyAgent
+    USES LLM ROUTE BuildingOllama
+    WITH DESCRIPTION "Explains building power use and peak alarms"
+    WITH DEFAULT_USER "energy-bot"
+    WITH INTERACTION_TOPIC "building/hq/agents/energy"
+    ADD TOOL "read_mqtt"
+        WITH TOPICS "building/hq/energy/#, building/hq/alarms/#"`;
+
+const SHOWCASE_COMFORT = `DEFINE AGENT ComfortAgent
+    USES LLM ROUTE BuildingOllama
+    WITH DESCRIPTION "Answers comfort questions about each room"
+    WITH DEFAULT_USER "comfort-bot"
+    WITH INTERACTION_TOPIC "building/hq/agents/comfort"
+    WITH AGENTS "EnergyAgent"
+    ADD TOOL "read_mqtt"
+        WITH TOPICS "building/hq/#"`;
+
+const SHOWCASE_AGENT_WITH_CONNECTOR = `DEFINE AGENT Planner
+    USES LLM CONNECTOR GPT55
+    WITH DEFAULT_USER "agent_svc"
+    ADD TOOL "execute_actions"
+        WITH TARGET "RestartLineX"
+        WITH LEVEL "write"`;
+
+test("splitLotEntities recognises DEFINE AGENT", () => {
+  const source = `${SHOWCASE_DEMO_FLIGHTS}\n\n${VALID_ROUTE}`;
+  const entities = splitLotEntities(source);
+  assert.deepEqual(
+    entities.map((entity) => [entity.kind, entity.name]),
+    [
+      ["AGENT", "DemoFlightsAgent"],
+      ["ROUTE", "PlantDb"],
+    ],
+  );
+});
+
+test("lintLot accepts showcase DEFINE AGENT cells", () => {
+  for (const source of [
+    SHOWCASE_DEMO_FLIGHTS,
+    SHOWCASE_MAINTENANCE,
+    SHOWCASE_ENERGY,
+    SHOWCASE_COMFORT,
+    SHOWCASE_AGENT_WITH_CONNECTOR,
+  ]) {
+    const findings = lintLot(source);
+    assert.deepEqual(findings, [], `unexpected findings for:\n${source}\n${JSON.stringify(findings, null, 2)}`);
+  }
+});
+
+test("lintLot rejects malformed DEFINE AGENT blocks", () => {
+  const cases = [
+    [
+      "missing USES",
+      `DEFINE AGENT A\n    WITH DEFAULT_USER "u"`,
+      /must start with USES LLM ROUTE/,
+    ],
+    [
+      "USES not first",
+      `DEFINE AGENT A\n    WITH DEFAULT_USER "u"\n    USES LLM ROUTE R`,
+      /must start with USES LLM ROUTE/,
+    ],
+    [
+      "missing DEFAULT_USER",
+      `DEFINE AGENT A\n    USES LLM ROUTE R`,
+      /DEFAULT_USER/,
+    ],
+    [
+      "ADD TOOL without quoted name",
+      `DEFINE AGENT A\n    USES LLM ROUTE R\n    WITH DEFAULT_USER "u"\n    ADD TOOL read_mqtt`,
+      /ADD TOOL requires a quoted tool name/,
+    ],
+    [
+      "quoted agent name",
+      `DEFINE AGENT "Bad"\n    USES LLM ROUTE R\n    WITH DEFAULT_USER "u"`,
+      /quoted/,
+    ],
+    [
+      "empty body",
+      `DEFINE AGENT Empty`,
+      /empty body/,
+    ],
+  ];
+  for (const [label, source, pattern] of cases) {
+    const errors = lintLot(source).filter((finding) => finding.severity === "error");
+    assert.ok(
+      errors.some((finding) => pattern.test(finding.message)),
+      `${label}: expected ${pattern} in ${JSON.stringify(errors)}`,
+    );
+  }
+});
+
+test("lintLot skips AS TRIGGER warning when model inherits via FROM", () => {
+  const child = `DEFINE MODEL AdvancedSensor FROM SensorReading WITH TOPIC "sensors/advanced"
+    ADD STRING "firmware" WITH "v2.0"
+    ADD DOUBLE "batteryLevel" WITH TOPIC "sensors/battery"`;
+  const warnings = lintLot(child).filter((finding) => finding.severity === "warning");
+  assert.ok(!warnings.some((finding) => /AS TRIGGER/.test(finding.message)), JSON.stringify(warnings));
+
+  const orphan = `DEFINE MODEL Lonely WITH TOPIC "sensors/lonely"
+    ADD DOUBLE "batteryLevel" WITH TOPIC "sensors/battery"`;
+  const orphanWarnings = lintLot(orphan).filter((finding) => finding.severity === "warning");
+  assert.ok(orphanWarnings.some((finding) => /AS TRIGGER/.test(finding.message)));
 });

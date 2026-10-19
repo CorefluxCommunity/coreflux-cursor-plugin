@@ -14,8 +14,8 @@ export const ENTITY_COMMANDS = {
   MODEL: { add: "-addModel", remove: "-removeModel" },
   ACTION: { add: "-addAction", remove: "-removeAction" },
   ROUTE: { add: "-addRoute", remove: "-removeRoute" },
-  RULE: { add: "-addRule", remove: "-removeRule" },
   AGENT: { add: "-addAgent", remove: "-removeAgent" },
+  RULE: { add: "-addRule", remove: "-removeRule" },
   THING: { add: "-addThing", remove: "-removeThing" },
   PYTHON: { add: "-addPython", remove: "-removePython" },
   THEME: { add: "-addTheme", remove: "-removeTheme" },
@@ -189,7 +189,7 @@ export function lintLot(source) {
     if (define) {
       if (indent.length > 0) add("error", lineNo, "DEFINE must start at column 0.", "Remove the leading indentation.");
       currentKind = define[1].toUpperCase();
-      if (["ACTION", "MODEL", "ROUTE", "RULE"].includes(currentKind) && define[3]) {
+      if (["ACTION", "MODEL", "ROUTE", "AGENT", "RULE"].includes(currentKind) && define[3]) {
         add("error", lineNo, `${currentKind.charAt(0)}${currentKind.slice(1).toLowerCase()} name "${define[3]}" is quoted; the parser expects a bare identifier.`, `Write DEFINE ${currentKind} ${define[3].replace(/[^A-Za-z0-9_]/g, "_")}.`);
       }
       if (currentKind === "MODEL" && /\bFROM\s+"/i.test(trimmed)) {
@@ -275,7 +275,7 @@ export function lintLot(source) {
 
     // Uppercase keyword check on the first token of a statement line.
     const firstToken = trimmed.split(/\s+/)[0];
-    const knownKeywords = ["DEFINE", "ON", "DO", "SET", "PUBLISH", "KEEP", "IF", "ELSE", "SWITCH", "CASE", "DEFAULT", "LOOP", "UNTIL", "CALL", "TRIGGER", "STORE", "ADD", "WITH", "INPUT", "RETURN", "OUTPUT", "GET", "DELETE", "ALLOW", "DENY", "BIND", "AT", "INVOKE", "FETCH", "NAVIGATE"];
+    const knownKeywords = ["DEFINE", "ON", "DO", "SET", "PUBLISH", "KEEP", "IF", "ELSE", "SWITCH", "CASE", "DEFAULT", "LOOP", "UNTIL", "CALL", "TRIGGER", "STORE", "ADD", "WITH", "INPUT", "RETURN", "OUTPUT", "GET", "DELETE", "ALLOW", "DENY", "BIND", "AT", "INVOKE", "FETCH", "NAVIGATE", "USES"];
     if (knownKeywords.includes(firstToken.toUpperCase()) && firstToken !== firstToken.toUpperCase()) {
       add("error", lineNo, `Keyword "${firstToken}" must be uppercase.`, `Write ${firstToken.toUpperCase()}.`);
     }
@@ -298,11 +298,58 @@ export function lintLot(source) {
     }
   }
 
-  // Model trigger sanity.
+  // DEFINE AGENT structural checks (mirrors broker ParseAgentDefinition + AgentDefinition.FromRoute).
+  for (const entity of splitLotEntities(source)) {
+    if (entity.kind !== "AGENT") continue;
+    const bodyLines = entity.code
+      .split("\n")
+      .slice(1)
+      .map((line) => stripComments(line).trim())
+      .filter((line) => line.length > 0);
+    if (bodyLines.length === 0) {
+      add(
+        "error",
+        entity.line,
+        `Agent "${entity.name}" has an empty body.`,
+        "Start with USES LLM ROUTE <llmRoute> (or CONNECTOR), then WITH DEFAULT_USER \"…\".",
+      );
+    } else if (!/^USES\s+LLM\s+(ROUTE|CONNECTOR)\s+[A-Za-z_][A-Za-z0-9_\-.]*\s*$/i.test(bodyLines[0])) {
+      add(
+        "error",
+        entity.line,
+        `Agent "${entity.name}" must start with USES LLM ROUTE <llmRoute> (or CONNECTOR).`,
+        'First body line: USES LLM ROUTE GPT55',
+      );
+    }
+    if (!/\bWITH\s+DEFAULT_USER\b/i.test(entity.code)) {
+      add(
+        "error",
+        entity.line,
+        `Agent "${entity.name}" is missing required WITH DEFAULT_USER.`,
+        'Add WITH DEFAULT_USER "agent_svc".',
+      );
+    }
+    for (const line of bodyLines) {
+      if (!/^ADD\s+TOOL\b/i.test(line)) continue;
+      if (!/^ADD\s+TOOL\s+"[^"]+"\s*$/i.test(line)) {
+        add(
+          "error",
+          entity.line,
+          `Agent "${entity.name}": ADD TOOL requires a quoted tool name.`,
+          'ADD TOOL "read_mqtt"',
+        );
+      }
+    }
+  }
+
+  // Model trigger sanity. Child models that inherit via FROM Parent get the parent's
+  // AS TRIGGER; only warn when this model both binds topics and declares neither.
   for (const entity of splitLotEntities(source)) {
     if (entity.kind !== "MODEL") continue;
+    const header = entity.code.split("\n")[0] ?? "";
+    const inheritsTrigger = /\bFROM\s+[A-Za-z_][A-Za-z0-9_\-.]*/i.test(header);
     const hasTopicBinding = /\bWITH\s+TOPIC\s+"/i.test(entity.code.split("\n").slice(1).join("\n"));
-    if (hasTopicBinding && !/\bAS\s+TRIGGER\b/i.test(entity.code)) {
+    if (hasTopicBinding && !/\bAS\s+TRIGGER\b/i.test(entity.code) && !inheritsTrigger) {
       add("warning", entity.line, `Model "${entity.name}" binds topics but marks none AS TRIGGER, so it will never auto-publish.`, "Add AS TRIGGER to the field whose update should publish the model.");
     }
   }

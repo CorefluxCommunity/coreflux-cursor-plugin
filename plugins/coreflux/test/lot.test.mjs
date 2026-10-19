@@ -57,7 +57,7 @@ test("sortForDeploy follows broker load order", () => {
   ]);
   assert.deepEqual(
     sorted.map((entity) => entity.kind),
-    ["MODEL", "ACTION", "ROUTE", "AGENT", "RULE", "THING", "PYTHON", "THEME", "PANEL"],
+    ["MODEL", "ACTION", "ROUTE", "AGENT", "RULE", "PYTHON", "THEME", "PANEL", "THING"],
   );
 });
 

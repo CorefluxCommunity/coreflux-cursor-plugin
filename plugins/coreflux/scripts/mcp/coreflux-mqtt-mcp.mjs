@@ -615,7 +615,7 @@ const tools = [
   {
     name: "lot_deploy",
     description:
-      "Deploy LoT source (one or more DEFINE blocks, or a Python script with a # Script Name header) to the broker. Splits entities, lints them, deploys in broker order (models → actions → routes → agents → rules → things → python → themes → panels; all Things go as one -addThing) and returns each envelope. Use dryRun=true to see the plan first.",
+      "Deploy LoT source (one or more DEFINE blocks, or a Python script with a # Script Name header) to the broker. Splits entities, lints them, deploys in broker order (models → actions → routes → agents → rules → python → themes → panels → things; all Things go as one -addThing) and returns each envelope. Use dryRun=true to see the plan first.",
     inputSchema: {
       type: "object",
       properties: {

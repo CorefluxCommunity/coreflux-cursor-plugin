@@ -22,7 +22,7 @@ All notable changes to the Coreflux plugin for Cursor are documented here. The f
 - `coreflux-cursor-tools` skill: maps the broker tool names used by the shared skills to this
   plugin's MCP tools.
 - `lot_deploy` / `lotnb_deploy` deploy `DEFINE AGENT` (`-addAgent`, after routes) and
-  `DEFINE THING` (every Thing block, templates included, as one `-addThing`, after rules);
+  `DEFINE THING` (every Thing block, templates included, as one `-addThing`, last, as the broker loads projects);
   `lot_remove` takes `AGENT` and `THING`.
 
 ### Changed

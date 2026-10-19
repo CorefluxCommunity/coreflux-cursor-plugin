@@ -6,9 +6,10 @@ import path from "node:path";
 
 /**
  * Deploy verb per entity kind, in the order the broker loads projects: models, actions, routes,
- * agents (after the LLM connector they use), rules, then things (FolderLoader), then the rest.
+ * agents (after the LLM connector they use), rules, python, themes, panels, then things last
+ * (ProjectManager load order).
  */
-export const ENTITY_ORDER = ["MODEL", "ACTION", "ROUTE", "AGENT", "RULE", "THING", "PYTHON", "THEME", "PANEL"];
+export const ENTITY_ORDER = ["MODEL", "ACTION", "ROUTE", "AGENT", "RULE", "PYTHON", "THEME", "PANEL", "THING"];
 
 export const ENTITY_COMMANDS = {
   MODEL: { add: "-addModel", remove: "-removeModel" },

@@ -1,0 +1,46 @@
+{
+  "source": "CorefluxCommunity/coreflux-broker-evo",
+  "brokerVersion": "2.21.16-rc.186",
+  "skills": [
+    {
+      "name": "broker-tools",
+      "description": "Complete reference for the tools you can call on a Coreflux broker: the MCP tool surface the Hub assistant and MCP clients use (validate_lot, deploy_lot, explore_topics, diagnose, provision_data_source and one tool per registry command), the broker__ tools a DEFINE AGENT is granted (read_mqtt, write_mqtt, read_lot, create_lot, execute_routes, execute_actions), Insight vs Agent mode, and the mandatory workflow for deploying LoT safely."
+    },
+    {
+      "name": "lot-actions",
+      "description": "How to write LOT actions: triggers, variables, topic operations, control flow, callable actions, and integrations (Python, MCP, LLM)."
+    },
+    {
+      "name": "lot-agents",
+      "description": "How to write a DEFINE AGENT: the TYPE LLM connector it uses, required clauses, ADD TOOL grants scoped to topics or targets, delegation peers, CALL AGENT from actions, and how agents are added, updated and removed."
+    },
+    {
+      "name": "lot-models",
+      "description": "How to write LOT models: data schemas, field types, MQTT topic bindings, triggers, behaviors (Default, Keep, Collapsed), storage, and inheritance."
+    },
+    {
+      "name": "lot-panels",
+      "description": "How to write LoTV panel definitions: DEFINE PANEL, ADD COMPONENT, BIND, ON events, WITH VISIBILITY, WITH INTERACT, and the mandatory workflow for deploying panels via broker.add_panel."
+    },
+    {
+      "name": "lot-routes",
+      "description": "How to write LOT connectors: database, OT (Modbus, S7, OPC UA, EtherNet/IP, ADS, Allen-Bradley, Fins), REST API, AI (LLM, MCP), MQTT bridge/cluster, Kafka/REST integrations, email, barcode, video, events, mappings, and OT TAG blocks."
+    },
+    {
+      "name": "lot-rules",
+      "description": "How to write LOT permission rules: ALLOW/DENY, topic patterns, user/group conditions, priority-based evaluation, and operation scopes."
+    },
+    {
+      "name": "lot-themes",
+      "description": "How to write LoTV theme definitions: DEFINE THEME with design tokens (colors, typography, spacing), EXTENDS inheritance, WHEN MODE light/dark, DEFINE THEME_VARIANT for component overrides, and deployment via broker.add_theme."
+    },
+    {
+      "name": "lot-things",
+      "description": "How DEFINE THING works: templates and roots, WITH clauses, {{param}} placeholders, references, expanded child names, and why a Thing-owned child must be changed through its Thing."
+    },
+    {
+      "name": "python-scripts",
+      "description": "How to write and manage Python scripts: naming conventions, function structure, add/remove scripts, CALL PYTHON from LOT, available modules."
+    }
+  ]
+}

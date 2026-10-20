@@ -11,7 +11,7 @@ and out (topics), polling interval for OT routes.
 1. `broker_route_template { type }` → use `fields` to know every setting, its type, regex and
    whether it should come from env (`env: true`). Start from `skeleton` (the `ADD METADATA`
    block is already removed).
-2. Fill the skeleton following `lot-authoring` → `lot-routes.md`:
+2. Fill the skeleton following the `lot-routes` skill:
    - hosts/users → `GET ENV "NAME"`; passwords/keys → `GET SECRET "NAME"`;
    - OT routes: `ADD MAPPING` with `SOURCE_TOPIC` + `EVERY`, tags indented 8 spaces; values
      will appear on `<SOURCE_TOPIC>/<Tag>`;

@@ -18,13 +18,14 @@ state: every statement about the broker is backed by an envelope or a topic you 
 
 ## Diagnosing
 
-Follow the `broker-observability` skill playbook:
+Use `broker-tools` for what the broker can tell you and `coreflux-cursor-tools` for the tool
+to call here:
 - Actions: `broker_action_trace { action, payload }`, then `$SYS/Coreflux/Actions/<name>/Error`.
 - Routes: status JSON (`errors.consecutive`, `health`), `-checkRouteConnection`, the route
   source on `$SYS/Coreflux/Routes/<name>`, env/secret names via `-listEnv` / `-listSecrets`.
 - Data flow: `mqtt_subscribe` on the exact topic for a bounded time; OT values are on
   `<SOURCE_TOPIC>/<Tag>`.
-- Permissions: `Permission denied` → `broker-security` skill; identify the missing flag.
+- Permissions: `Permission denied` → `lot-rules` skill; identify the scope and rule that denied.
 
 ## Changing things
 

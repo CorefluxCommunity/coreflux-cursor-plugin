@@ -10,7 +10,7 @@ themes on a Coreflux broker.
 
 | Plugin | What it gives the agent |
 |--------|-------------------------|
-| [`plugins/coreflux`](plugins/coreflux) | The full broker command surface over MQTT (`$SYS/Coreflux/Command`), live topic publish/subscribe, LoT lint + ordered deployment of `.lot`/`.lotnb` files, project upload/export, route templates, action tracing, docs search, five LoT/broker skills, two agents, six slash-commands and safety hooks for destructive operations. |
+| [`plugins/coreflux`](plugins/coreflux) | The full broker command surface over MQTT (`$SYS/Coreflux/Command`), live topic publish/subscribe, LoT lint + ordered deployment of `.lot`/`.lotnb` files, project upload/export, route templates, action tracing, docs search, the Coreflux LoT/broker skills (synced from coreflux-skills), two agents, six slash-commands and safety hooks for destructive operations. |
 
 ## Install
 
@@ -76,7 +76,7 @@ Node 20 and 22, and the end-to-end suite against `coreflux/coreflux-mqtt-broker:
 ## Contributing
 
 Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the checks to run, how to
-write skills that stay true to the broker parser, and the release process.
+update the synced skills, and the release process.
 [SECURITY.md](SECURITY.md) covers vulnerability reports. Changes are tracked in
 [CHANGELOG.md](CHANGELOG.md).
 

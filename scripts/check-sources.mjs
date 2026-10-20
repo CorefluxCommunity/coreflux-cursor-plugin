@@ -4,7 +4,7 @@
 //  - versions agree across package.json, marketplace.json, plugin.json and the MCP server
 //  - hooks.json / mcp.json reference scripts that exist
 //  - agents, commands, rules and skills carry the frontmatter Cursor needs
-//  - docs only mention MCP tools the server actually exposes
+//  - docs only mention MCP tools the server actually exposes (synced broker skills excepted)
 //  - no CRLF line endings or trailing whitespace in tracked text files
 //
 // Dependency-free; run with `npm run check`.
@@ -142,7 +142,11 @@ requireFrontmatter(path.join(pluginDir, "skills"), ["name", "description"]);
 // 5. Docs reference only tools the server exposes.
 const toolNames = new Set([...serverSource.matchAll(/^\s{4}name: "([a-z_]+)",$/gm)].map((match) => match[1]));
 if (toolNames.size < 10) fail(`Could not extract tool names from the MCP server (found ${toolNames.size})`);
-const docFiles = files.filter((file) => /\.(md|mdc)$/.test(file) && file.startsWith(pluginDir));
+// Skills synced from coreflux-skills describe the broker's own tool surfaces (deploy_lot,
+// broker__read_mqtt, …), not this plugin's server; scripts/sync-skills.mjs --check guards them.
+const skillsDir = path.join(pluginDir, "skills");
+const syncedSkills = (json["plugins/coreflux/skills/skills.json"]?.skills ?? []).map((skill) => path.join(skillsDir, skill.name) + path.sep);
+const docFiles = files.filter((file) => /\.(md|mdc)$/.test(file) && file.startsWith(pluginDir) && !syncedSkills.some((dir) => file.startsWith(dir)));
 const knownPrefixes = /\b((?:broker|mqtt|lot|lotnb|project)_[a-z_]+)\b/g;
 for (const file of docFiles) {
   const text = readFileSync(file, "utf8");

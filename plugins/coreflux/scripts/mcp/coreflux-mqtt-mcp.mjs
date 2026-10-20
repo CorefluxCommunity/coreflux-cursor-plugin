@@ -13,7 +13,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import { MqttClient, topicMatches } from "./lib/mqtt-client.mjs";
-import { deployCommand, lintLot, loadLotFile, sortForDeploy, splitLotEntities, ENTITY_COMMANDS } from "./lib/lot.mjs";
+import { deployCommand, deployUnits, lintLot, loadLotFile, splitLotEntities, ENTITY_COMMANDS } from "./lib/lot.mjs";
 import { zipDirectory } from "./lib/zip.mjs";
 import { describeProfiles, loadProfiles, removeProfile, resolveSettings as resolveProfileSettings, saveProfile, setActiveProfile } from "./lib/brokers.mjs";
 
@@ -260,7 +260,7 @@ function summarizeEnvelope(envelope) {
 // ---------------------------------------------------------------------------------------------
 
 async function deployEntities(entities, { dryRun = false, stopOnError = true, lint = true, timeoutMs = DEFAULT_TIMEOUT_MS }) {
-  const plan = sortForDeploy(entities).map((entity) => ({
+  const plan = deployUnits(entities).map((entity) => ({
     kind: entity.kind,
     name: entity.name,
     source: entity.source,
@@ -282,7 +282,7 @@ async function deployEntities(entities, { dryRun = false, stopOnError = true, li
   }
 
   const results = [];
-  for (const entity of sortForDeploy(entities)) {
+  for (const entity of deployUnits(entities)) {
     let outcome;
     try {
       const envelope = await session.command(deployCommand(entity), { timeoutMs });
@@ -590,7 +590,7 @@ const tools = [
   {
     name: "lot_lint",
     description:
-      "Statically check LoT source for the mistakes that break the broker parser (indentation, indented triggers, missing DO/WITH/THEN, MESSAGE keyword, 0-based TOPIC POSITION, quoted action/model/route/rule names, ADD METADATA, hardcoded passwords, PAYLOAD on timers, models without AS TRIGGER…). Pass either code or a path to a .lot/.lotnb file. Run before deploying.",
+      "Statically check LoT source for the mistakes that break the broker parser (indentation, indented triggers, missing DO/WITH/THEN, MESSAGE keyword, 0-based TOPIC POSITION, quoted action/model/route/agent/rule names, ADD METADATA, hardcoded passwords, PAYLOAD on timers, models without AS TRIGGER (skipped when the model inherits via FROM)…). Pass either code or a path to a .lot/.lotnb file. Run before deploying.",
     inputSchema: {
       type: "object",
       properties: {
@@ -615,7 +615,7 @@ const tools = [
   {
     name: "lot_deploy",
     description:
-      "Deploy LoT source (one or more DEFINE blocks, or a Python script with a # Script Name header) to the broker. Splits entities, lints them, deploys in broker order (models → actions → routes → rules → python → themes → panels) and returns each envelope. Use dryRun=true to see the plan first.",
+      "Deploy LoT source (one or more DEFINE blocks, or a Python script with a # Script Name header) to the broker. Splits entities, lints them, deploys in broker order (models → actions → routes → agents → rules → python → themes → panels → things; all Things go as one -addThing) and returns each envelope. Use dryRun=true to see the plan first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -668,11 +668,11 @@ const tools = [
   },
   {
     name: "lot_remove",
-    description: "Remove a single LoT entity from the broker (-removeAction / -removeModel / -removeRoute / -removeRule / -removePython / -removeTheme / -removePanel).",
+    description: "Remove a single LoT entity from the broker (-removeAction / -removeModel / -removeRoute / -removeRule / -removeAgent / -removeThing / -removePython / -removeTheme / -removePanel). Change a Thing's child through its Thing, never directly.",
     inputSchema: {
       type: "object",
       properties: {
-        kind: { type: "string", enum: ["ACTION", "MODEL", "ROUTE", "RULE", "PYTHON", "THEME", "PANEL"] },
+        kind: { type: "string", enum: ["ACTION", "MODEL", "ROUTE", "RULE", "AGENT", "THING", "PYTHON", "THEME", "PANEL"] },
         name: { type: "string" },
       },
       required: ["kind", "name"],

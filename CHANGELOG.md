@@ -28,10 +28,12 @@ All notable changes to the Coreflux plugin for Cursor are documented here. The f
 ### Changed
 
 - The LoT and broker skills are now a pinned copy of
-  [coreflux-skills](https://github.com/CorefluxCommunity/coreflux-skills) (tag `2.21.16-rc.186`),
+  [coreflux-skills](https://github.com/CorefluxCommunity/coreflux-skills) (GA tag `2.22.0`),
   generated from the broker: `broker-tools`, `lot-actions`, `lot-models`, `lot-routes`,
   `lot-rules`, `lot-agents`, `lot-things`, `lot-panels`, `lot-themes`, `python-scripts`.
   `npm run skills:sync` updates the copy and `npm run skills:check` (in CI) fails on drift.
+- Bundled Coreflux skills updated to 2.22.0 (GA), adding `broker-operations`. The pin must be a
+  GA tag: `npm run skills:sync` refuses branches and release candidates (ENG-573).
 
 ### Removed
 

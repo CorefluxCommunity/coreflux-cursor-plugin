@@ -1,7 +1,11 @@
 {
   "source": "CorefluxCommunity/coreflux-broker-evo",
-  "brokerVersion": "2.21.16-rc.186",
+  "brokerVersion": "2.22.0",
   "skills": [
+    {
+      "name": "broker-operations",
+      "description": "Operating a Coreflux broker over MQTT: the $SYS/Coreflux/Command payload and the Command/Output reply envelope, the $SYS/Coreflux topic map, route status and action trace JSON, a triage playbook, users, groups and permission flags, env vs secrets, and projects and .lotnb notebooks."
+    },
     {
       "name": "broker-tools",
       "description": "Complete reference for the tools you can call on a Coreflux broker: the MCP tool surface the Hub assistant and MCP clients use (validate_lot, deploy_lot, explore_topics, diagnose, provision_data_source and one tool per registry command), the broker__ tools a DEFINE AGENT is granted (read_mqtt, write_mqtt, read_lot, create_lot, execute_routes, execute_actions), Insight vs Agent mode, and the mandatory workflow for deploying LoT safely."

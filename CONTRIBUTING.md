@@ -65,7 +65,8 @@ npm run e2e        # deploys throw-away entities, drives them, removes them
   synced from [coreflux-skills](https://github.com/CorefluxCommunity/coreflux-skills), which is
   generated from the broker. Do not edit them here; `npm run skills:check` fails on any drift.
   Fix the skill in the broker (`src/CorefluxCentral/Agents/Skills/*.md`, `audience: [broker, external]`),
-  then, once a broker release has tagged coreflux-skills, run `npm run skills:sync -- --ref <tag>`.
+  then, once a broker GA release has tagged coreflux-skills, run `npm run skills:sync -- --ref <GA tag>`.
+  Pin GA tags only (`MAJOR.MINOR.PATCH`); the sync script refuses branches and release candidates.
 - Plugin-only guidance (this plugin's MCP tools, hooks, profiles) goes in
   `skills/coreflux-cursor-tools`, a rule, an agent or a command.
 - Keep examples copy-pastable. Prefer realistic names (`PackagingLine`, `PLC_Modbus`) over

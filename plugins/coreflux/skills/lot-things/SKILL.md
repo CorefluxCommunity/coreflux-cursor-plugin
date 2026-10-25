@@ -1,6 +1,6 @@
 ---
 name: lot-things
-description: How DEFINE THING works: templates and roots, WITH clauses, {{param}} placeholders, references, expanded child names, and why a Thing-owned child must be changed through its Thing.
+description: "How DEFINE THING works: templates and roots, WITH clauses, {{param}} placeholders, references, expanded child names, and why a Thing-owned child must be changed through its Thing."
 ---
 
 # LOT Things — DEFINE THING

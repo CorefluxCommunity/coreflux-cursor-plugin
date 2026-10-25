@@ -1,6 +1,6 @@
 ---
 name: lot-themes
-description: How to write LoTV theme definitions: DEFINE THEME with design tokens (colors, typography, spacing), EXTENDS inheritance, WHEN MODE light/dark, DEFINE THEME_VARIANT for component overrides, and deployment via broker.add_theme.
+description: "How to write LoTV theme definitions: DEFINE THEME with design tokens (colors, typography, spacing), EXTENDS inheritance, WHEN MODE light/dark, DEFINE THEME_VARIANT for component overrides, and deployment via broker.add_theme."
 ---
 
 # LoTV Theme Authoring — Design Token System

@@ -1,6 +1,6 @@
 ---
 name: lot-actions
-description: How to write LOT actions: triggers, variables, topic operations, control flow, callable actions, and integrations (Python, MCP, LLM).
+description: "How to write LOT actions: triggers, variables, topic operations, control flow, callable actions, and integrations (Python, MCP, LLM)."
 ---
 
 # LOT Actions — Complete Reference
@@ -175,6 +175,9 @@ ON TOPIC "sensors/+/data" DO
 ```
 Use `+` for single-level wildcard in topic patterns.
 PAYLOAD gives the message content. TOPIC POSITION N extracts segment N (1-based).
+PAYLOAD exists only in ON TOPIC and ON CHANGE actions. In ON EVERY, ON START, session triggers and
+callable actions there is no message: a bare PAYLOAD fails to compile, and a typed `PAYLOAD AS DOUBLE`
+compiles but never holds data. Read the last value with `GET TOPIC "…"` instead.
 
 ### ON CHANGE (MQTT-triggered only when payload bytes change)
 ```
@@ -192,6 +195,42 @@ ON START DO
     PUBLISH TOPIC "system/status" WITH "online"
 ```
 In a cluster, ON START runs once per cluster start, on one node, at most once. A node that restarts, or a definition deployed later, does not run it again.
+
+### ON CONNECT / ON DISCONNECT / ON SUBSCRIBE (client session events)
+```
+DEFINE ACTION AuditConnect
+ON CONNECT DO
+    PUBLISH TOPIC "audit/connect/" + CLIENTID WITH USER + "@" + ENDPOINT
+    KEEP TOPIC "sessions/" + CLIENTID + "/clean" WITH CLEANSESSION
+
+DEFINE ACTION AuditDisconnect
+ON DISCONNECT DO
+    PUBLISH TOPIC "audit/disconnect/" + CLIENTID WITH DISCONNECTREASON
+
+DEFINE ACTION AuditSensorSubscriptions
+ON SUBSCRIBE "sensors/#" DO
+    PUBLISH TOPIC "audit/subscriptions" WITH CLIENTID + " -> " + SUBSCRIBETOPIC + " qos=" + SUBSCRIBEQOS
+```
+ON CONNECT runs after the broker accepts a client's CONNECT; ON DISCONNECT when the client goes away
+(clean, unclean or session takeover); ON SUBSCRIBE after the subscribe permission check allows a
+subscription. `ON SUBSCRIBE "pattern"` fires when the subscribed topic filter matches the pattern
+(`+`/`#` allowed); bare `ON SUBSCRIBE DO` fires for every allowed subscription.
+
+Session keywords (no braces — they are keywords, not variables):
+
+| Keyword | Value |
+|---------|-------|
+| CLIENTID | The client that connected, disconnected or subscribed |
+| USER | That client's username (`USER IN GROUP "g"` / `USER IS "name"` work too) |
+| ENDPOINT | Client address (`ip:port`) |
+| CLEANSESSION | `"true"` / `"false"` from the CONNECT packet |
+| DISCONNECTREASON | ON DISCONNECT only, e.g. `Clean (NormalDisconnection)`, `NotClean`, `Takeover` |
+| SUBSCRIBETOPIC | ON SUBSCRIBE only: the topic filter the client subscribed to |
+| SUBSCRIBEQOS | ON SUBSCRIBE only: the granted QoS (0, 1, 2); -1 elsewhere |
+
+These actions have no triggering message: PAYLOAD fails to compile in them and TOPIC POSITION is
+empty. The broker
+only runs the session hooks while at least one action uses them, so there is no cost when unused.
 
 ### Callable actions (INPUT / RETURN / OUTPUT)
 
@@ -314,6 +353,19 @@ LoT has no JSON object literal (`WITH { "temp": {temp} }` is rejected). Build a 
 payload with PUBLISH MODEL (below) or return a dict from CALL PYTHON. Do not hand-build
 JSON with escaped quotes (`"{\"a\": 1}"`) — a `\"` in a string literal fails to compile.
 RETAIN / QOS apply to PUBLISH TOPIC only, never to KEEP TOPIC.
+
+### PAYLOAD AS BYTES — forward binary payloads unchanged
+```
+DEFINE ACTION ForwardCameraFrame
+ON TOPIC "cameras/+/frame" DO
+    SET "cam" WITH TOPIC POSITION 2
+    PUBLISH TOPIC "archive/cameras/" + {cam} + "/frame" WITH PAYLOAD AS BYTES
+    KEEP TOPIC "state/cameras/" + {cam} + "/last" WITH PAYLOAD AS BYTES
+```
+Plain PAYLOAD goes through a UTF-8 string, which corrupts images, protobuf and other binary data.
+`WITH PAYLOAD AS BYTES` on PUBLISH TOPIC or KEEP TOPIC passes the bytes through bit for bit. A string
+transformation after it (`PAYLOAD AS BYTES TRIM`, FILTER, REPLACE) is a parse error, and an empty
+payload is not published or kept.
 
 ### KEEP TOPIC — stored without broadcast, readable by GET TOPIC from any action
 ```
@@ -439,7 +491,19 @@ All timestamps are UTC; there is no local-time format. An unrecognised string is
 ```
 CALL ACTION "CalcAvg" WITH value1 = {a}, value2 = {b} RETURN avg
 ```
-The callable must be deployed first (deploy fails with "Callable action … not found").
+Unlike CALL PYTHON, the one-line form is valid here. For long argument lists, WITH and RETURN may also go
+on indented lines; several outputs are comma-separated after RETURN:
+```
+DEFINE ACTION CheckBoilerTemp
+ON TOPIC "boiler/+/temp" DO
+    SET "temp" WITH PAYLOAD AS DOUBLE
+    CALL ACTION AnalyzeReading
+        WITH value = {temp}, threshold = 85
+        RETURN is_above, difference, percentage
+    IF {is_above} == TRUE THEN
+        PUBLISH TOPIC "boiler/" + TOPIC POSITION 2 + "/alarm" WITH "over by " + {difference}
+```
+(`AnalyzeReading` is the callable from "Callable actions" above.) The callable must be deployed first (deploy fails with "Callable action … not found").
 Calling the same callable twice in one action currently fails to compile — split it.
 
 ### CALL PYTHON — invoke a Python function
@@ -459,7 +523,13 @@ CALL MCP "MyMcpRoute.search"
     WITH (query = "test")
     RETURN AS {result}
 ```
-"RouteName.ToolName" in one string; named arguments inside parentheses.
+"RouteName.ToolName" in one string; named arguments inside parentheses. There is no TOOL keyword:
+`CALL MCP "MyMcpRoute" TOOL "search"` is rejected (the string must contain exactly one dot).
+
+To find the tool names and their parameters, read the retained topics the MCP connector publishes once
+it connects: `$SYS/Coreflux/Routes/<Route>/Tools` (summary with the `tools` list) and
+`$SYS/Coreflux/Routes/<Route>/Tools/<tool>` (description and `parameters`). Its `usage_example` and
+`trigger_example` fields are ready to paste.
 
 ### CALL LLM — invoke an LLM route
 ```
@@ -477,9 +547,9 @@ CALL AGENT "MyAgent.execute"
 
 ### TRIGGER — trigger a route event
 ```
-TRIGGER "MyDB" WITH "sensor1" FOR "ReadSensors"
+TRIGGER "MyDB" TO "sensor1" FOR "ReadSensors"
 ```
-Order: route name, WITH the data to send, FOR the route event/mapping name.
+Order: connector name, TO the data to send, FOR the route event/mapping name. `WITH` is accepted in place of `TO`, but the data still comes before `FOR`. Writing the event name first and the data after `FOR` still parses, but sends the event name as the data to an event named after the data.
 
 ## PUBLISH MODEL — publish a model instance
 ```
@@ -497,6 +567,7 @@ JSON reshaping, external library math, or multi-step data processing.
 Every script MUST have `# Script Name: <Name>` in the first 10 lines.
 Deploy with `broker.add_python(argument=...)` — the argument is the whole script, header included;
 the name is read from the header (letters, digits, `_`; must not start with a digit).
+In a project (`.lotnb`), Python cells load after the actions; project loading is covered by `broker-operations`.
 
 ```python
 # Script Name: SensorUtils
@@ -659,6 +730,9 @@ RETURN
 | SWITCH {x} / CASE | IF … ELSE IF … ELSE | SWITCH is not an action statement |
 | PAYLOAD AND_THEN TRIM | PAYLOAD TRIM, or FILTER … AND THEN TRIM | Chain keyword is AND THEN (two words) |
 | WITH { "k": {v} } | PUBLISH MODEL, or a dict from CALL PYTHON | No JSON object literal |
+| PAYLOAD inside ON EVERY / ON START / ON CONNECT | GET TOPIC "…" AS DOUBLE | Only ON TOPIC / ON CHANGE have a message |
+| CALL MCP "Route" TOOL "search" | CALL MCP "Route.search" (WITH / RETURN AS indented) | There is no TOOL keyword |
+| PUBLISH … WITH PAYLOAD (binary data) | PUBLISH … WITH PAYLOAD AS BYTES | Plain PAYLOAD is decoded as UTF-8 text |
 
 ### Trigger indentation - the most common AI mistake
 

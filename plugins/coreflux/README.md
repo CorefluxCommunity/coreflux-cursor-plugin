@@ -54,13 +54,15 @@ workspace file `active` → user file `active` → `default` → `workspace` →
 
 The LoT and broker skills are a pinned copy of
 [CorefluxCommunity/coreflux-skills](https://github.com/CorefluxCommunity/coreflux-skills), which is
-generated from the broker and tagged per broker release; the tag in use is `brokerVersion` in
-`skills/skills.json`. Do not edit them here — fix the broker's skill and move the pin with
-`npm run skills:sync -- --ref <tag>`. CI fails when the bundle drifts from the pinned tag.
+generated from the broker and tagged per broker GA release; the tag in use is `brokerVersion` in
+`skills/skills.json`. Only GA tags are pinned, never a branch or a release candidate. Do not edit
+them here — fix the broker's skill and move the pin with `npm run skills:sync -- --ref <GA tag>`.
+CI fails when the bundle drifts from the pinned tag.
 
 | Skill | Source | Use |
 |-------|--------|-----|
 | `broker-tools` | coreflux-skills | The broker's tool surfaces, registry commands, safe deploy workflow |
+| `broker-operations` | coreflux-skills | Operating a broker over MQTT: `$SYS/Coreflux/Command` payloads and replies |
 | `lot-actions` / `lot-models` / `lot-routes` / `lot-rules` | coreflux-skills | LoT syntax per entity kind |
 | `lot-agents` / `lot-things` | coreflux-skills | `DEFINE AGENT`, `DEFINE THING` |
 | `lot-panels` / `lot-themes` | coreflux-skills | LoTV dashboards |

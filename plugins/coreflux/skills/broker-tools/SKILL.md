@@ -1,6 +1,6 @@
 ---
 name: broker-tools
-description: Complete reference for the tools you can call on a Coreflux broker: the MCP tool surface the Hub assistant and MCP clients use (validate_lot, deploy_lot, explore_topics, diagnose, provision_data_source and one tool per registry command), the broker__ tools a DEFINE AGENT is granted (read_mqtt, write_mqtt, read_lot, create_lot, execute_routes, execute_actions), Insight vs Agent mode, and the mandatory workflow for deploying LoT safely.
+description: "Complete reference for the tools you can call on a Coreflux broker: the MCP tool surface the Hub assistant and MCP clients use (validate_lot, deploy_lot, explore_topics, diagnose, provision_data_source and one tool per registry command), the broker__ tools a DEFINE AGENT is granted (read_mqtt, write_mqtt, read_lot, create_lot, execute_routes, execute_actions), Insight vs Agent mode, and the mandatory workflow for deploying LoT safely."
 ---
 
 # Broker Tools — Complete Reference
@@ -74,7 +74,12 @@ Which skill to load before each kind:
   (and `get_route_template("TYPE")` over MCP) · Rule → `lot-rules` · Panel → `lot-panels`
   · Theme → `lot-themes` · Agent → `lot-agents` · Python script → `python-scripts`
 - Before explaining or changing a DEFINE THING, or an entity it owns → `lot-things`
-- A vendor REST API (Airtable, ServiceNow, SAP, …) → `rest-api-connectors`
+- A vendor REST API (Airtable, ServiceNow, SAP, …) → `rest-api-connectors` on the Hub and in
+  a DEFINE AGENT. Elsewhere that skill is not available; get the same information from
+  `list_route_templates` (REST API apps carry `connector: true`) and
+  `get_route_template("<APP_CODE>")` (`-routeCode <APP_CODE>` over MQTT)
+- Raw MQTT commands on `$SYS/Coreflux/Command`, the `$SYS` topic map, users and permission
+  flags, env vs secrets, projects and `.lotnb` notebooks → `broker-operations`
 
 ---
 

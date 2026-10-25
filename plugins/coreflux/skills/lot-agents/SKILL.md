@@ -1,6 +1,6 @@
 ---
 name: lot-agents
-description: How to write a DEFINE AGENT: the TYPE LLM connector it uses, required clauses, ADD TOOL grants scoped to topics or targets, delegation peers, CALL AGENT from actions, and how agents are added, updated and removed.
+description: "How to write a DEFINE AGENT: the TYPE LLM connector it uses, required clauses, ADD TOOL grants scoped to topics or targets, delegation peers, CALL AGENT from actions, and how agents are added, updated and removed."
 ---
 
 # LOT Agents — DEFINE AGENT

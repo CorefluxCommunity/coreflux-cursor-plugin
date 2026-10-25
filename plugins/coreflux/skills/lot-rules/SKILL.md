@@ -1,6 +1,6 @@
 ---
 name: lot-rules
-description: How to write LOT permission rules: ALLOW/DENY, topic patterns, user/group conditions, priority-based evaluation, and operation scopes.
+description: "How to write LOT permission rules: ALLOW/DENY, topic patterns, user/group conditions, priority-based evaluation, and operation scopes."
 ---
 
 # LOT Rules — Complete Reference
@@ -137,6 +137,11 @@ numbers; a missing topic or empty payload is false. GET TOPIC lookup order (acti
 rules): in-flight, trigger payload, live cache (KEEP or PUBLISH; last write wins), then
 MQTT retain as a restart fallback. Use TOPIC EXISTS when the grant must be an MQTT
 retained message.
+
+A permission check has no side effects: GET TOPIC on a topic with no stored value is simply false.
+Unlike GET TOPIC in an action, it does not start tracking that topic, so a rule never waits for or
+subscribes to a missing allow-list topic. Write the grant (KEEP or a retained publish) before the
+client needs it.
 
 ## Topic Patterns
 

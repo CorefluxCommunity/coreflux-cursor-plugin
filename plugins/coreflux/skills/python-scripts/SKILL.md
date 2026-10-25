@@ -1,6 +1,6 @@
 ---
 name: python-scripts
-description: How to write and manage Python scripts: naming conventions, function structure, add/remove scripts, CALL PYTHON from LOT, available modules.
+description: "How to write and manage Python scripts: naming conventions, function structure, add/remove scripts, CALL PYTHON from LOT, available modules."
 ---
 
 # Python Scripts — Complete Reference

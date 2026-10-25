@@ -1,6 +1,6 @@
 ---
 name: lot-routes
-description: How to write LOT connectors: database, OT (Modbus, S7, OPC UA, EtherNet/IP, ADS, Allen-Bradley, Fins), REST API, AI (LLM, MCP), MQTT bridge/cluster, Kafka/REST integrations, email, barcode, video, events, mappings, and OT TAG blocks.
+description: "How to write LOT connectors: database, OT (Modbus, S7, OPC UA, EtherNet/IP, ADS, Allen-Bradley, Fins), REST API, AI (LLM, MCP), MQTT bridge/cluster, Kafka/REST integrations, email, barcode, video, events, mappings, and OT TAG blocks."
 ---
 
 # LOT Connectors — Complete Reference
@@ -152,16 +152,20 @@ shared connector channel is saturated (and, on a cluster, where the connector ru
 broker-wide default.
 
 ```
-DEFINE ROUTE CloudBridge WITH TYPE MQTT_BRIDGE
+DEFINE ROUTE HistorianDB WITH TYPE POSTGRESQL
     ADD ROUTE_CONFIG
-        WITH OVERLOAD_POLICY "lossless"
+        WITH OVERLOAD_POLICY "balanced"
         WITH OVERLOAD_TIMEOUT 200
         WITH OVERLOAD_CAPACITY 20000
-    ADD SOURCE_CONFIG
-        WITH BROKER SELF
-    ADD DESTINATION_CONFIG
-        WITH BROKER_ADDRESS "broker.example.com"
-        WITH BROKER_PORT 8883
+    ADD SQL_CONFIG
+        WITH SERVER GET ENV "PG_HOST"
+        WITH PORT 5432
+        WITH DATABASE "historian"
+        WITH USERNAME GET ENV "PG_USER"
+        WITH PASSWORD GET SECRET "PG_PASSWORD"
+    ADD EVENT StoreReading
+        WITH SOURCE_TOPIC "sensors/store"
+        WITH QUERY "INSERT INTO readings (device, value) VALUES ('{payload.json.device}', CAST('{payload.json.value}' AS DOUBLE PRECISION))"
 ```
 
 | Setting | Values | Description |
@@ -174,6 +178,11 @@ DEFINE ROUTE CloudBridge WITH TYPE MQTT_BRIDGE
 **`OVERLOAD_CAPACITY` is incompatible with `lossless`** — a capacity is an admission budget that
 sheds once exhausted, which would silently break the "lossless never sheds" guarantee. Declaring
 both logs an error and the connector runs with capacity forced back to unbounded; lossless always wins.
+
+The broker-wide default (what a connector without ADD ROUTE_CONFIG inherits) comes from two environment
+variables read at broker start: `COREFLUX_ROUTE_OVERLOAD_POLICY` (`lossless` / `balanced` / `realtime`,
+default `balanced`) and `COREFLUX_ROUTE_CHANNEL_FULL_TIMEOUT_MS` (the `balanced` wait, default 50).
+`COREFLUX_ROUTE_CHANNEL_CAPACITY` sizes the shared connector channel (default 100000, minimum 1024).
 
 ## Environment Variables and Secrets
 
@@ -194,17 +203,20 @@ DEFINE ROUTE MyDB WITH TYPE POSTGRESQL
 ADD EVENT ReadSensor
     WITH SOURCE_TOPIC "sensors/+/read"
     WITH DESTINATION_TOPIC "sensors/{topic.2}/result"
-    WITH QUERY "SELECT * FROM sensors WHERE id = '{payload}'"
+    WITH QUERY "SELECT * FROM sensors WHERE id = '{payload.json.id}'"
 ```
+`{payload.json.id}` (with a payload like `{"id": "s1"}`) is used rather than `'{payload}'`, which is inserted
+unescaped; see the SQL injection note under PostgreSQL.
 
 ### Query Placeholders
 | Placeholder | Value |
 |-------------|-------|
 | {payload} | Raw MQTT message payload |
+| {payload.json} / {value.json} | The whole payload (same text as {payload}) |
 | {payload.json.key} | Nested JSON extraction |
 | {topic} | Full MQTT topic |
 | {topic.N} | Topic segment by position (1-based) |
-| {timestamp} | ISO 8601 timestamp |
+| {timestamp} / {timestamp.iso} | ISO 8601 timestamp |
 | {timestamp.unix} | Unix seconds |
 | {timestamp.unix_ms} / {timestamp.utc} | Unix milliseconds / `yyyy-MM-dd HH:mm:ss` UTC |
 | {payload.csv.N} | Nth CSV field of the payload (0-based) |
@@ -253,6 +265,11 @@ ADD MAPPING ControlSetpoint
 
 Read value publishes on **factory/plc1/control/setpoint**; publishing to **factory/plc1/control/setpoint/write** writes the value to the PLC.
 
+Value options on an OT **ADD TAG** (all optional): **SCALING** and **OFFSET** give `raw × SCALING + OFFSET`;
+**MIN_VALUE** / **MAX_VALUE** clamp it; **DECIMAL_PLACES** rounds it (default 2); **DEADBAND** is the minimum
+change before a new value is published (default 0 = every poll); **UNIT** is a label. These take a plain number;
+OFFSET, MIN_VALUE and MAX_VALUE may be negative (`WITH OFFSET -40`).
+
 ## Database Connector Examples
 
 ### PostgreSQL
@@ -268,11 +285,16 @@ DEFINE ROUTE ProductionDB WITH TYPE POSTGRESQL
     ADD EVENT GetOrders
         WITH SOURCE_TOPIC "orders/query"
         WITH DESTINATION_TOPIC "orders/result"
-        WITH QUERY "SELECT * FROM orders WHERE status = '{payload}'"
+        WITH QUERY "SELECT * FROM orders WHERE status = '{payload.json.status}'"
     ADD EVENT InsertReading
-        WITH SOURCE_TOPIC "sensors/+/store"
-        WITH QUERY "INSERT INTO readings (device, value, ts) VALUES ('{topic.2}', {payload}, NOW())"
+        WITH SOURCE_TOPIC "sensors/store"
+        WITH QUERY "INSERT INTO readings (device, value, ts) VALUES ('{payload.json.device}', CAST('{payload.json.value}' AS DOUBLE PRECISION), NOW())"
 ```
+**SQL injection:** QUERY is built by text substitution; there are no bound parameters. Only `{payload.json.key}` and
+`{payload.csv.N}` values have their single quotes doubled, so put those inside `'…'` and CAST numbers in SQL.
+Raw `{payload}`, `{value.json}` and `{topic.N}` are inserted unescaped: a `'` in a payload or topic segment
+(both are client-controlled) breaks or rewrites the statement. Never use them inside a query, and limit who may
+publish to SOURCE_TOPIC with a rule (`lot-rules`). Give the connector's database user only the rights it needs.
 
 ### MongoDB
 ```
@@ -315,6 +337,30 @@ connector deploys but every poll fails with `Unsupported address type`. A plain 
 offset (`WITH ONE_BASED_ADDRESSES true` on MODBUS_CONFIG makes `1` the first register). Only six-digit Modicon
 addresses (`400001`, `300001`, `100001`) are converted; `"40001"` is register offset 40001, not the first holding register.
 
+### Modbus RTU (MODBUS_SERIAL)
+```
+DEFINE ROUTE BoilerRtu WITH TYPE MODBUS_SERIAL
+    ADD MODBUS_CONFIG
+        WITH COM_PORT "/dev/ttyUSB0"
+        WITH BAUD_RATE 19200
+        WITH PARITY "EVEN"
+        WITH DATA_BITS 8
+        WITH STOP_BITS "ONE"
+        WITH SLAVE_ID 3
+    ADD MAPPING Boiler
+        WITH SOURCE_TOPIC "boiler/rtu"
+        WITH EVERY 2 SECONDS
+        ADD TAG "WaterTemp"
+            WITH ADDRESS "0"
+            WITH ADDRESS_TYPE "INPUT_REGISTER"
+            WITH DATA_TYPE "INT16"
+            WITH SCALING 0.1
+            WITH DEADBAND 0.5
+```
+The serial port is **COM_PORT** (`COM3` on Windows, `/dev/ttyUSB0` on Linux), not PORT. MODBUS_SERIAL is serial
+by its type, so CONNECTION_TYPE is not needed. BAUD_RATE must be at least 300; PARITY is NONE/ODD/EVEN/MARK/SPACE; DATA_BITS 7 or 8;
+STOP_BITS ONE/TWO/ONEPOINTFIVE; SLAVE_ID 1–247 on a serial line.
+
 ### BACnet/IP
 ```
 DEFINE ROUTE BMS WITH TYPE BACNET
@@ -352,6 +398,8 @@ DEFINE ROUTE S7PLC WITH TYPE SIEMENS_S7
             WITH ADDRESS "DB1.DBD0"
             WITH DATA_TYPE "REAL"
 ```
+CPU_TYPE is one of `S7200`, `S7300`, `S7400`, `S71200` (default) or `S71500` (`S7-1200` / `S7-1500` also
+accepted). Anything else, such as `LOGO`, fails validation. SLOT is usually 1 for S7-1200/1500 and 2 for S7-300.
 
 ### OPC UA
 ```
@@ -366,6 +414,64 @@ DEFINE ROUTE OpcServer WITH TYPE OPCUA
             WITH ADDRESS "ns=2;s=Channel1.Device1.Tag1"
             WITH DATA_TYPE "DOUBLE"
 ```
+
+### EtherNet/IP (CIP explicit messaging)
+```
+DEFINE ROUTE PackagingLine WITH TYPE ETHERNETIP
+    ADD ETHERNETIP_CONFIG
+        WITH IP "192.168.10.20"
+        WITH PORT 44818
+    ADD MAPPING LineStatus
+        WITH SOURCE_TOPIC "packaging/eip"
+        WITH EVERY 1 SECONDS
+        ADD TAG "CycleCount"
+            WITH ADDRESS "4.100.3.0"
+            WITH DATA_TYPE "DINT"
+```
+ADDRESS is `ClassID.InstanceID.AttributeID.AttributeIndex` (an optional fifth part selects a bit), not a
+Logix tag name. IP is required; PORT defaults to 44818.
+
+### Beckhoff ADS / TwinCAT
+```
+DEFINE ROUTE Press1 WITH TYPE ADS
+    ADD ADS_CONFIG
+        WITH TARGET_NET_ID "192.168.1.50.1.1"
+        WITH TARGET_IP "192.168.1.50"
+        WITH TARGET_PORT 851
+    ADD MAPPING PressState
+        WITH SOURCE_TOPIC "press1/ads"
+        WITH EVERY 500 MILLISECONDS
+        ADD TAG "Force"
+            WITH ADDRESS "GVL_Press.rForce"
+            WITH ADDRESS_TYPE "SYMBOL"
+            WITH DATA_TYPE "REAL"
+```
+The target is addressed by its AMS Net ID (**TARGET_NET_ID**) and **TARGET_PORT** (851 for TwinCAT 3, 801 for
+TwinCAT 2); there is no AMS_NET_ID key. The connector goes through the local AMS router and does not create AMS
+routes, so set up the route between this host and the PLC yourself. LOCAL_NET_ID, LOCAL_ROUTE_TO_TARGET,
+TARGET_ROUTE_TO_LOCAL, TARGET_USER and TARGET_PASSWORD are accepted but not used. A SYMBOL tag's ADDRESS is the PLC symbol path; ADDRESS_TYPE "INDEX"
+takes `"indexGroup,indexOffset"`.
+
+### Omron FINS
+```
+DEFINE ROUTE Oven1 WITH TYPE FINS
+    ADD FINS_CONFIG
+        WITH IP "192.168.1.60"
+        WITH PORT 9600
+        WITH PROTOCOL "TCP"
+        WITH LOCAL_NODE 10
+        WITH REMOTE_NODE 60
+    ADD MAPPING OvenData
+        WITH SOURCE_TOPIC "oven1/fins"
+        WITH EVERY 1 SECONDS
+        ADD TAG "ZoneTemp"
+            WITH ADDRESS "100"
+            WITH MEMORY_TYPE "DM"
+            WITH DATA_TYPE "INT"
+            WITH SCALING 0.1
+```
+Nodes are **LOCAL_NODE** / **REMOTE_NODE** (not PC_NODE / PLC_NODE); PROTOCOL is TCP (default) or UDP. A tag's
+ADDRESS is the word address and **MEMORY_TYPE** the area (DM default; CIO, WR, HR, AR, CNT, TIM, EM).
 
 ### OT server connectors (MODBUS_SERVER, OPCUA_SERVER)
 The broker is the device: it serves registers (Modbus) or nodes (OPC UA) to external masters/clients, and the values
@@ -423,6 +529,55 @@ Each event with METHOD + ENDPOINT is an HTTP endpoint: the request body is publi
 **REPLY_TOPIC** the server waits for a message there and returns it (504 after REPLY_TIMEOUT seconds); without it the
 request is answered `200 accepted` at once. `{session}` is a per-request id.
 
+## MQTT Bridge Connector
+
+```
+DEFINE ROUTE CloudBridge WITH TYPE MQTT_BRIDGE
+    ADD SOURCE_CONFIG
+        WITH BROKER SELF
+    ADD DESTINATION_CONFIG
+        WITH BROKER_ADDRESS "mqtt.example.com"
+        WITH BROKER_PORT 8883
+        WITH CLIENT_ID "plant1-bridge"
+        WITH USE_TLS true
+        WITH USERNAME GET ENV "CLOUD_MQTT_USER"
+        WITH PASSWORD GET SECRET "CLOUD_MQTT_PASSWORD"
+    ADD MAPPING TelemetryUp
+        WITH SOURCE_TOPIC "plant1/telemetry/#"
+        WITH DESTINATION_TOPIC "sites/plant1/telemetry/#"
+        WITH DIRECTION "out"
+    ADD MAPPING CommandsDown
+        WITH SOURCE_TOPIC "plant1/commands/#"
+        WITH DESTINATION_TOPIC "sites/plant1/commands/#"
+        WITH DIRECTION "in"
+```
+`WITH BROKER SELF` makes a side this broker; otherwise each side takes BROKER_ADDRESS, BROKER_PORT (default 1883),
+CLIENT_ID, USERNAME, PASSWORD, USE_TLS (plus ALLOW_UNTRUSTED_CERTS and certificate paths). Each mapping's
+DIRECTION is `out` (SOURCE_TOPIC on the source side → DESTINATION_TOPIC on the destination), `in` (DESTINATION_TOPIC
+on the destination → SOURCE_TOPIC on the source) or `both` (default); `+` and `#` carry over by position. At least
+one ADD MAPPING is required, and MQTT_CONFIG is not accepted in place of SOURCE_CONFIG.
+
+## Email Connector
+
+```
+DEFINE ROUTE AlertMail WITH TYPE EMAIL
+    ADD SMTP_CONFIG
+        WITH HOST "smtp.example.com"
+        WITH PORT 587
+        WITH USERNAME GET ENV "SMTP_USER"
+        WITH PASSWORD GET SECRET "SMTP_PASSWORD"
+        WITH USE_TLS true
+    ADD EVENT SendAlarm
+        WITH SOURCE_TOPIC "alarms/email"
+        WITH DESTINATION_TOPIC "alarms/email/status"
+        WITH SUBJECT "Alarm on {payload.json.machine}"
+        WITH RECIPIENT "maintenance@example.com"
+```
+SMTP_CONFIG needs HOST, USERNAME and PASSWORD (PORT defaults to 587, USE_TLS to true); USERNAME is also the From
+address. Each message on SOURCE_TOPIC sends one email to RECIPIENT. The payload is the HTML body unless the event
+sets TEMPLATE_PATH to an HTML file. SUBJECT and RECIPIENT accept placeholders; DESTINATION_TOPIC receives the send
+status. There are no SERVER, FROM or TO keys.
+
 ## AI Connectors
 
 ### LLM Connector
@@ -433,6 +588,19 @@ DEFINE ROUTE LocalLLM WITH TYPE LLM
         WITH MODEL "llama3.2"
         WITH TEMPERATURE 0.7
 ```
+
+Cloud provider (PROVIDER `openai`, `anthropic`, or `compatible` for an OpenAI-compatible BASE_URL; default `ollama`):
+```
+DEFINE ROUTE Claude WITH TYPE LLM
+    ADD LLM_CONFIG
+        WITH PROVIDER "anthropic"
+        WITH MODEL "claude-sonnet-4-5"
+        WITH API_KEY GET SECRET "ANTHROPIC_API_KEY"
+        WITH MAX_TOKENS 1024
+```
+MODEL is required. Cloud providers use their own endpoint when BASE_URL is omitted. MAX_TOKENS caps each
+completion (default 2048); SYSTEM_PROMPT applies to CALL LLM; PRICE_INPUT / PRICE_OUTPUT (per million tokens)
+turn on cost reporting.
 
 ### MCP Client Connector — stdio transport
 
@@ -508,6 +676,8 @@ SQLSERVER/MSSQL, MONGODB, CRATEDB, SNOWFLAKE, OPENSEARCH, FILE_STORAGE and REST_
 ## Common Mistakes
 - **WRONG:** DEFINE MODEL (or broker.add_model) for a new Modbus/OPC/S7/device point **RIGHT:** **ADD TAG** inside **ADD MAPPING** on the OT connector; deploy full connector with **broker.add_route**
 - **WRONG:** Using **DESTINATION_TOPIC** on an OT **ADD MAPPING** as the topic where polled tag data appears **RIGHT:** Data is on **SOURCE_TOPIC** / **`<SOURCE_TOPIC>/<tagName>`** (subscribe or read those topics)
+- **WRONG:** **ADD TAG** directly under **DEFINE ROUTE** **RIGHT:** every **ADD TAG** sits inside an **ADD MAPPING** (otherwise: "Unexpected token TAG in route components")
+- **WRONG:** MODBUS_SERIAL with **WITH PORT "COM3"** **RIGHT:** **WITH COM_PORT "COM3"**
 - **NEVER use ADD METADATA in connector definitions.** `ADD METADATA` blocks (WITH IMAGE, WITH DESCRIPTION, WITH DOCLINK) appear in connector *templates* returned by `broker.get_route_template` for documentation purposes only. The LOT parser does **not** support `ADD METADATA` in deployed connectors. Including it in a `DEFINE ROUTE` block will cause a parse error. Always strip `ADD METADATA` and everything under it when generating connector LoT from a template.
 - Missing WITH TYPE after the connector name
 - Config block type must match the connector type (e.g., SQL_CONFIG for POSTGRESQL)

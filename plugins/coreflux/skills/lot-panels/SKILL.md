@@ -1,6 +1,6 @@
 ---
 name: lot-panels
-description: How to write LoTV panel definitions: DEFINE PANEL, ADD COMPONENT, BIND, ON events, WITH VISIBILITY, WITH INTERACT, and the mandatory workflow for deploying panels via broker.add_panel.
+description: "How to write LoTV panel definitions: DEFINE PANEL, ADD COMPONENT, BIND, ON events, WITH VISIBILITY, WITH INTERACT, and the mandatory workflow for deploying panels via broker.add_panel."
 ---
 
 # LoTV Panel Authoring — Coreflux Visual Language
@@ -710,6 +710,7 @@ Ask these questions in order. Stop at the first YES that applies:
   "show a button to start machine"     WITH TYPE "button" + ON CLICK DO PUBLISH (only if user explicitly asked for a control)
   "show a switch to turn on light"     WITH TYPE "switch" + ON TOGGLE DO PUBLISH ... WITH STATE (only if user explicitly asked; NEVER auto-add next to an indicator)
   "navigate between screens"           WITH TYPE "button" + ON CLICK DO NAVIGATE
+  "button that asks an agent"          WITH TYPE "button" + SET AWAIT "AnswerText" (+ "text" with SET MARKDOWN true)
 
 ### Quick reference — layout and navigation
 
@@ -1674,6 +1675,44 @@ DEFINE PANEL "LineOverview"
 - `TRIGGER ROUTE "Route" EVENT "Event" [WITH "key" = value …]` fires a route event as the
   clicking user. It is refused (logged, not run) for an event whose name starts with `_`
   and for an agent route.
+
+### Slow answers — `SET AWAIT` on a button, `SET MARKDOWN` on text
+
+When a button starts something that answers later on another topic (an agent
+brief, a route reply), name the components that answer lands in with
+`SET AWAIT`. When the answer is markdown (agent output usually is), add
+`SET MARKDOWN true` to the `text` component that shows it.
+
+```lot
+ADD COMPONENT "Briefing" WITH TYPE "card"
+    SET TITLE "Coordinator briefing"
+    ADD COMPONENT "BriefingText" WITH TYPE "text"
+        SET MARKDOWN true
+        BIND CONTENT TO TOPIC "site/out/briefing"
+    ADD COMPONENT "AskBriefing" WITH TYPE "button"
+        SET LABEL "Brief me now"
+        SET AWAIT "BriefingText"
+        SET AWAIT_TIMEOUT 300
+        ON CLICK DO
+            PUBLISH TOPIC "site/requests/briefing" WITH "operator request from the panel"
+```
+
+- `SET AWAIT "Id[, Id…]"` (buttons only): on click the Hub disables the button
+  with a spinner and marks each named component as waiting (dimmed, spinner and
+  elapsed seconds; an empty `text` shows a skeleton instead of `---`). A
+  component settles on the next message on any topic it is bound to, even an
+  identical payload. The button frees up once every named component settled.
+- `SET AWAIT_TIMEOUT <seconds>` (default 120, 1–3600): after it the button frees
+  up and a component that is still waiting shows "No update after N s" until its
+  next value. Set it a little above the agent's `TASK_TIMEOUT` or the route's
+  worst case.
+- Every `AWAIT` id must be a component of the same panel with a `BIND`; the
+  parser warns otherwise. If the action can skip publishing (a cooldown, a
+  guard), publish something on the awaited topic in that branch too, or the
+  panel waits until the timeout.
+- `SET MARKDOWN true` renders bold, italics, lists, headings, links and code.
+  Raw HTML is never rendered (it shows as text) and images are dropped. Without
+  it, text stays plain.
 
 ---
 

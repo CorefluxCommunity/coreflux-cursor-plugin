@@ -2,13 +2,16 @@
 // Bundle the Coreflux agent skills into plugins/coreflux/skills/.
 //
 // CorefluxCommunity/coreflux-skills is generated from the broker (its source of truth) and tagged
-// per broker release. This copies one tag of it into the plugin. The tag in use is recorded as
+// per broker GA release. This copies one tag of it into the plugin. The tag in use is recorded as
 // `brokerVersion` in plugins/coreflux/skills/skills.json, so a plain run re-syncs the pinned tag.
 // Skill directories not listed in that manifest (coreflux-cursor-tools) belong to the plugin and
 // are left alone. Never edit a synced skill here: fix it in the broker and bump the tag.
 //
+// GA tags only: the pin must be a broker GA tag (MAJOR.MINOR.PATCH), never a branch or a release
+// candidate. --ref and the synced skills.json are both checked.
+//
 //   node scripts/sync-skills.mjs                          re-sync the pinned tag
-//   node scripts/sync-skills.mjs --ref 2.21.17            move the pin to another tag
+//   node scripts/sync-skills.mjs --ref 2.22.0             move the pin to another GA tag
 //   node scripts/sync-skills.mjs --from ../coreflux-skills   use a local checkout
 //   node scripts/sync-skills.mjs --check                  fail if the bundle differs from the pinned tag
 
@@ -19,6 +22,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = "https://github.com/CorefluxCommunity/coreflux-skills.git";
+const GA_TAG = /^\d+\.\d+\.\d+$/;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dest = path.join(root, "plugins", "coreflux", "skills");
 const manifestPath = path.join(dest, "skills.json");
@@ -38,7 +42,11 @@ let tmp;
 if (!source) {
   const ref = option("--ref") ?? current?.brokerVersion;
   if (!ref) {
-    console.error("no pinned tag in plugins/coreflux/skills/skills.json; pass --ref <tag>");
+    console.error("no pinned tag in plugins/coreflux/skills/skills.json; pass --ref <GA tag>");
+    process.exit(1);
+  }
+  if (!GA_TAG.test(ref)) {
+    console.error(`${ref} is not a GA tag (MAJOR.MINOR.PATCH); pin coreflux-skills to GA tags only`);
     process.exit(1);
   }
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "coreflux-skills-"));
@@ -64,6 +72,9 @@ function bundleFiles(dir, manifest) {
 
 try {
   const incoming = readManifest(path.join(source, "skills.json"));
+  if (!GA_TAG.test(incoming?.brokerVersion ?? "")) {
+    throw new Error(`coreflux-skills brokerVersion "${incoming?.brokerVersion}" is not a GA version; pin GA tags only`);
+  }
   const sourceLayout = { root: path.join(source, "skills"), at: (rel) => (rel === "skills.json" || rel === "LICENSE" ? path.join(source, rel) : path.join(source, "skills", rel)) };
 
   if (check) {
@@ -91,7 +102,7 @@ try {
     for (const skill of incoming.skills) fs.cpSync(path.join(source, "skills", skill.name), path.join(dest, skill.name), { recursive: true });
     fs.copyFileSync(path.join(source, "skills.json"), manifestPath);
     fs.copyFileSync(path.join(source, "LICENSE"), path.join(dest, "LICENSE"));
-    console.log(`bundled ${incoming.skills.length} skills (broker ${incoming.brokerVersion || "main"}) into plugins/coreflux/skills`);
+    console.log(`bundled ${incoming.skills.length} skills (broker ${incoming.brokerVersion}) into plugins/coreflux/skills`);
   }
 } finally {
   if (tmp) fs.rmSync(tmp, { recursive: true, force: true });

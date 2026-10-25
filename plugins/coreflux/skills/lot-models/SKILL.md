@@ -1,6 +1,6 @@
 ---
 name: lot-models
-description: How to write LOT models: data schemas, field types, MQTT topic bindings, triggers, behaviors (Default, Keep, Collapsed), storage, and inheritance.
+description: "How to write LOT models: data schemas, field types, MQTT topic bindings, triggers, behaviors (Default, Keep, Collapsed), storage, and inheritance."
 ---
 
 # LOT Models — Complete Reference
@@ -51,6 +51,23 @@ Models define data schemas that map MQTT topics to typed fields.
 `ADD JSON "x"` and `ADD TIMESTAMP "x"` are parse errors — use OBJECT and STRING.
 The type may be omitted (`ADD "x" WITH TOPIC "t"`); it is then inferred from the value.
 
+To embed JSON you received (not a string of it), assign the JSON text to an OBJECT or ARRAY field in
+PUBLISH MODEL. The text is parsed into the document; text that is not valid JSON becomes `{}` / `[]`.
+```
+DEFINE MODEL GatewayEnvelope COLLAPSED
+    ADD STRING "gateway"
+    ADD OBJECT "data"
+    ADD STRING "received" WITH TIMESTAMP "ISO"
+
+DEFINE ACTION WrapGatewayData
+ON TOPIC "gateways/+/raw" DO
+    SET "gw" WITH TOPIC POSITION 2
+    PUBLISH MODEL GatewayEnvelope TO "gateways/" + {gw} + "/envelope" WITH
+        gateway = {gw}
+        data = (GET JSON "data" IN PAYLOAD AS STRING)
+```
+`GET JSON … AS STRING` on a nested object returns its JSON text, so `data` is published as an object.
+
 ## Field Bindings
 
 ### WITH TOPIC — bind field to an MQTT topic
@@ -64,6 +81,24 @@ ADD DOUBLE "temperature" WITH TOPIC "sensors/temp" AS TRIGGER
 ```
 When a message arrives on the trigger topic, the model re-evaluates and publishes.
 At least one field must be AS TRIGGER for the model to auto-publish.
+
+Several fields may be AS TRIGGER; a message on any one of them publishes the model, with the other
+fields at their last known values:
+```
+DEFINE MODEL MachineSnapshot COLLAPSED WITH TOPIC "machines/press1/snapshot"
+    ADD DOUBLE "temperature" WITH TOPIC "machines/press1/temp" AS TRIGGER
+    ADD DOUBLE "pressure" WITH TOPIC "machines/press1/pressure" AS TRIGGER
+    ADD STRING "timestamp" WITH TIMESTAMP "ISO"
+```
+
+### WITH COLLECTION TO TOPIC — build an array from numbered subtopics
+```
+DEFINE MODEL LineOrders COLLAPSED WITH TOPIC "line1/orders/summary"
+    ADD STRING "line" WITH TOPIC "line1/orders/updated" AS TRIGGER
+    ADD ARRAY "orders" WITH COLLECTION TO TOPIC "line1/orders/item"
+```
+The array is read from `line1/orders/item/0`, `line1/orders/item/1`, … and stops at the first missing
+index. Declare the field ARRAY, and publish one JSON object per index.
 
 ### WITH (static or computed default) — NO VALUE keyword
 Static defaults use WITH directly. Never use WITH VALUE — the parser rejects it for anything but a plain literal.
@@ -324,6 +359,7 @@ ON TOPIC "machines/+/cycle" DO
 | ADD STRING "ok" WITH VALUE "ok" | ADD STRING "ok" WITH "ok" — VALUE only takes a literal; drop it |
 | No AS TRIGGER on any field (topic-bound model) | At least one field must have AS TRIGGER |
 | ADD JSON "cfg" / ADD TIMESTAMP "ts" | ADD OBJECT "cfg" / ADD STRING "ts" WITH TIMESTAMP "ISO" |
+| ADD STRING "data" for received JSON (published as an escaped string) | ADD OBJECT "data" — JSON text assigned to it is parsed |
 | DEFINE MODEL Device / DEFINE MODEL Event | Keyword names are rejected — DeviceInfo, EventRecord |
 | DEFINE child before parent | Define parent model first |
 | COLLAPSED when subtopics are needed | Only use COLLAPSED when you want one JSON blob |
